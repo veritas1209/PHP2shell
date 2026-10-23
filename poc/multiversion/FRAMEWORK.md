@@ -18,8 +18,10 @@ The normal runner enforces all of these conditions before opening a socket:
 
 ## Files
 
-- `exploit.py`: profile-driven fixed-carrier and `r0-spray-v1` execution,
-  including fixed or adaptive stage-2 leak recipes.
+- `exploit.py`: guarded dispatcher plus profile-driven fixed-carrier and
+  `r0-spray-v1` execution, including fixed or adaptive stage-2 leak recipes.
+- `pure_http_oom.py`: declarative `pure-http-oom-v1` A1/B1/A2/B2 recipe
+  interpreter for the exact PHP 8.2.34 `php.ini-production` runtime.
 - `profile.py`: strict profile/manifest loader, ABI geometry checks, and local
   address policy.
 - `elf.py`: bounds-checked ELF64 reader that hashes `libphp`, reads its GNU
@@ -28,16 +30,16 @@ The normal runner enforces all of these conditions before opening a socket:
 - `profile_tool.py`: offline ELF inspection, candidate-only calibration, and
   short-lived target-manifest creation.
 - `profile-v1.schema.json`: the profile interchange schema.
-- `profiles/`: three runnable exact-build profiles: PHP 8.3.35 and 8.5.11 use
-  adaptive stage 2 plus `r0-spray-v1`; PHP 8.4.26 uses the fixed-array/fixed-
-  carrier recipe.
+- `profiles/`: four runnable exact-build profiles. PHP 8.2.34 uses the
+  pure-HTTP/OOM path; PHP 8.3.35 and 8.5.11 use adaptive stage 2 plus
+  `r0-spray-v1`; PHP 8.4.26 uses the fixed-array/fixed-carrier recipe.
 - `run-local-docker-lab.sh` and `lab/`: the no-argument digest-pinned runner
   and its live Docker/image/runtime verification helpers.
 
-PHP 8.3.35, 8.4.26, and 8.5.11 are runnable only for the exact fingerprints
+PHP 8.2.34, 8.3.35, 8.4.26, and 8.5.11 are runnable only for the exact fingerprints
 recorded in their profiles, after repeated local UID proofs and patched
-negative controls. PHP 7.2.34, 8.1.34, and 8.2.34 remain non-runnable because
-the current disclosure chain does not work on them; see `SUPPORT.md`. Known
+negative controls. PHP 7.2.34 and 8.1.34 remain non-runnable because the
+current disclosure paths do not work on them; see `SUPPORT.md`. Known
 ELF symbols alone never qualify a new profile.
 
 ## Offline profile workflow
@@ -100,6 +102,14 @@ contains `uid=<number>`; validation and exploit failures return `2`.
 ## Current limits
 
 - Profiles are exact-build artefacts; a PHP version alone is never enough.
+- `pure-http-oom-v1` is a separate recipe shape. It records the PHP 8.2 A1
+  tail geometry, raw stale-SID offset, B1 disclosure size/page order, A2
+  nested-field geometry, and B2 fake-reference/fake-array placement. Its
+  large B1 request uses chunked transfer so the stock `post_max_size=8M`
+  runtime follows the measured request path.
+- The pure HTTP engine accepts only the fixed `id>/out/<simple-name>` proof
+  command supplied by the guarded entry point. It cannot be selected with a
+  public target, command, offset, or image override.
 - The ABI builder supports the profiled PHP 8 Zend layout on Linux/AMD64.
 - Schema v1's `zend_execute_data.call_info` key is a compatibility name for
   the pointer at offset `0x40`; the real PHP 8 member is

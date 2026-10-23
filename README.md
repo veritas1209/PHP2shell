@@ -2,7 +2,7 @@
 
 WSL2의 격리된 Docker 환경에서 PHP의 OOM bailout 및 stale request-global state
 취약점을 공식 패치 전후 빌드로 비교한 보안 연구 자료입니다. 공개 full-chain
-기법을 exact-build profile로 제한해 PHP 8.3.35, 8.4.26, 8.5.11에서
+기법을 exact-build profile로 제한해 PHP 8.2.34, 8.3.35, 8.4.26, 8.5.11에서
 `www-data` 권한의 명령 실행을 확인했고, 대응하는 수정 릴리스에서는 같은 재현
 절차가 disclosure 단계에서 중단되는 것을 확인했습니다.
 
@@ -27,6 +27,7 @@ heap calibration이 일치하는 빌드만 실행 profile로 제공합니다.
 
 | 취약 빌드 | 로컬 proof | 수정 빌드 대조군 | 동일 체인 결과 |
 |---|---|---|---|
+| PHP 8.2.34 | 5/5 fresh 실행에서 `uid=33(www-data)` | PHP 8.2.35 | 3/3 B1 heap pointer 없음, proof 없음 |
 | PHP 8.3.35 | 2/2 독립 실행에서 `uid=33(www-data)` | PHP 8.3.36 | disclosure 실패, proof 없음 |
 | PHP 8.4.26 | 4/4 기록된 실행에서 `uid=33(www-data)` | PHP 8.4.27 | stage-1 leak 실패, proof 없음 |
 | PHP 8.5.11 | 2/2 독립 실행에서 `uid=33(www-data)` | PHP 8.5.12 | disclosure 실패, proof 없음 |
@@ -35,16 +36,15 @@ heap calibration이 일치하는 빌드만 실행 profile로 제공합니다.
 `id>/out/p`를 호출해 target container의 새 `/out` volume에 proof를 생성했는지로
 확인합니다. 재현은 ptrace 없이 수행했습니다.
 
-PHP 8.2.34, 8.1.34, 7.2.34는 실행 profile로 제공하지 않습니다. 이들 빌드에서
-현재 체인이 요구하는 session-cookie disclosure가 성립하지 않아 offset이나 filler
-수정만으로는 이 PoC를 포팅할 수 없었습니다. 이는 해당 버전이 취약하지 않다는
-판정이 아니며, 다른 disclosure primitive를 이용한 별도 체인은 검토 범위 밖입니다.
+PHP 8.2.34는 stock `php.ini-production`의 128M/`display_errors=Off` 환경에 맞춘
+별도 `pure-http-oom-v1` profile을 사용합니다. PHP 8.1.34와 7.2.34는 실행
+profile로 제공하지 않습니다. 이는 해당 버전이 취약하지 않다는 판정이 아닙니다.
 
 ## 권장 로컬 PoC
 
 [`poc/multiversion/run-local-docker-lab.sh`](poc/multiversion/run-local-docker-lab.sh)는
-검증된 세 profile만 허용하는 no-argument WSL/Linux Docker runner입니다. 기본
-실행은 세 profile을 모두 순서대로 검사합니다.
+검증된 네 profile만 허용하는 no-argument WSL/Linux Docker runner입니다. 기본
+실행은 네 profile을 모두 순서대로 검사합니다.
 
 ```bash
 chmod +x poc/multiversion/run-local-docker-lab.sh
@@ -82,8 +82,9 @@ commit `167085410a9342fafbd1bd64f5006920dbc83b8e`에서 일부를 수정·확장
 [`poc/multiversion/THIRD_PARTY_NOTICES.md`](poc/multiversion/THIRD_PARTY_NOTICES.md)와
 `poc/multiversion/THIRD_PARTY_LICENSES/78ResearchLab-MIT.txt`에 보존합니다.
 
-라이선스가 확인되지 않은 다른 공개 PoC는 소스를 복사하지 않고 commit과 관찰
-결과만 인용합니다. 자세한 범위는 [THIRD_PARTY.md](THIRD_PARTY.md)를 참고하세요.
+라이선스가 확인되지 않은 다른 공개 PoC는 소스 파일을 vendoring하지 않고 prior
+art, commit과 로컬 관찰 결과를 인용합니다. 자세한 범위는
+[THIRD_PARTY.md](THIRD_PARTY.md)를 참고하세요.
 
 ## 문서와 증거
 

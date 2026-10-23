@@ -1,0 +1,32 @@
+profile=php-8.2.34-apache-amd64-pure-http-oom
+run_id=20261023T083245Z-3369
+date=2026-10-23
+runner_arguments=none
+network=internal-only
+published_ports=none
+proof_command=id>/out/p
+
+target_repo_digest=php@sha256:1650dcb528360aad05d6ed2f83cb403a2a39c31bd14552efd9a747b2207dea86
+target_image_id=sha256:f380b054d6364b80f0952a9198e5dc1e1ab4d809aad24d3f3174f059e863f48a
+libphp_sha256=42ae9f69550e036ff5ad3d25d7ebf6b40bf2dd6531e8f891de53bea0d1663e9b
+libphp_gnu_build_id=432b9cdfc44ab0205ee9f81d234d14e474e9aeb6
+zif_system_offset=0x39b8a0
+zval_ptr_dtor_offset=0x487650
+
+runtime_source=stock php.ini-production
+memory_limit=128M
+display_errors=Off
+post_max_size=8M
+upload_max_filesize=2M
+mpm=prefork
+workers=1
+
+a1_body_length=1117868
+a1_body_sha256=643be7a49073fc4af53a2d87aec3ec4b7f67fade1f0d458d00c6f88675326178
+attempt_1=B1 did not return the profiled session cookie
+attempt_2=B1 disclosed 819200 bytes and the fixed proof completed
+proof=uid=33(www-data) gid=33(www-data) groups=33(www-data)
+cleanup=no labelled lab containers, networks, or proof volumes remained
+
+fresh_tail_variant_result=5/5 proof present
+fixed_control=PHP 8.2.35, 3/3 B1 no heap pointers, exit 1, PROOF_ABSENT

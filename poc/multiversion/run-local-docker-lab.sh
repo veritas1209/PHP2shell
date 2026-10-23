@@ -9,6 +9,7 @@ fi
 
 readonly ATTACKER_IMAGE="python@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704"
 readonly -a VERIFIED_PROFILE_IDS=(
+    "php-8.2.34-apache-amd64-pure-http-oom"
     "php-8.3.35-apache-amd64-r0-spray"
     "php-8.4.26-apache-amd64-fixed-carrier"
     "php-8.5.11-apache-amd64-r0-spray"
@@ -77,7 +78,7 @@ case "$PROFILE_SELECTION" in
     all)
         SELECTED_PROFILE_IDS=("${VERIFIED_PROFILE_IDS[@]}")
         ;;
-    php-8.3.35-apache-amd64-r0-spray|php-8.4.26-apache-amd64-fixed-carrier|php-8.5.11-apache-amd64-r0-spray)
+    php-8.2.34-apache-amd64-pure-http-oom|php-8.3.35-apache-amd64-r0-spray|php-8.4.26-apache-amd64-fixed-carrier|php-8.5.11-apache-amd64-r0-spray)
         SELECTED_PROFILE_IDS=("$PROFILE_SELECTION")
         ;;
     *)
@@ -120,25 +121,40 @@ profile_spec() {
             PROFILE_SHA256="98047f64453c5fbcf88ce57fc42494d13083ab206a21357db8a438240c9d04cf"
             TARGET_IMAGE="php@sha256:c59c808172ee3672cd334f8f2a5d7b1480a9d7273a368f412b8ee9b4ef418184"
             TARGET_IMAGE_ID="sha256:90620e863c15e608cfebd058554d82d2c7fd816bdd690adc69027409cbb7a369"
+            PHP_INI_FILE="php.ini"
+            PRODUCTION_INI=0
             ;;
         php-8.4.26-apache-amd64-fixed-carrier)
             PROFILE_FILE="php-8.4.26-apache-amd64-fixed.json"
             PROFILE_SHA256="28a0145a06b703ba612e36543e1cfe6acba5728b151dbd370d3260ee3cdd2a4a"
             TARGET_IMAGE="php@sha256:60111400ff77bdc44fa79b4f072afe49a42abba71e0846ad496be4761dc9c11a"
             TARGET_IMAGE_ID="sha256:46b195b6378e712d1a65cd3f853242bebd7f3cb4cafe137fd592b365909d2c17"
+            PHP_INI_FILE="php.ini"
+            PRODUCTION_INI=0
             ;;
         php-8.5.11-apache-amd64-r0-spray)
             PROFILE_FILE="php-8.5.11-apache-amd64-r0-spray.json"
             PROFILE_SHA256="6339a0fa94d2eaf7e00a8dfa8769be3c98d708ce1f40e735b107caa1aa2f3127"
             TARGET_IMAGE="php@sha256:47e6d8849049375e0d19e81f1b391ed88828d4653e0d1b00822185b66b564e8b"
             TARGET_IMAGE_ID="sha256:b384c1b31d2008af2160a735bb856317926f893553293f526024019a31d0fd6b"
+            PHP_INI_FILE="php.ini"
+            PRODUCTION_INI=0
+            ;;
+        php-8.2.34-apache-amd64-pure-http-oom)
+            PROFILE_FILE="php-8.2.34-apache-amd64-pure-http-oom.json"
+            PROFILE_SHA256="a0d1d55152445385885230a384f859001193afad08604b407e987dc9ba34aec6"
+            TARGET_IMAGE="php@sha256:1650dcb528360aad05d6ed2f83cb403a2a39c31bd14552efd9a747b2207dea86"
+            TARGET_IMAGE_ID="sha256:f380b054d6364b80f0952a9198e5dc1e1ab4d809aad24d3f3174f059e863f48a"
+            # The measured target uses the image's stock php.ini-production.
+            PHP_INI_FILE=""
+            PRODUCTION_INI=1
             ;;
         *)
             echo "internal error: profile escaped the allow-list: $1" >&2
             return 1
             ;;
     esac
-    readonly PROFILE_FILE PROFILE_SHA256 TARGET_IMAGE TARGET_IMAGE_ID
+    readonly PROFILE_FILE PROFILE_SHA256 TARGET_IMAGE TARGET_IMAGE_ID PHP_INI_FILE PRODUCTION_INI
 }
 
 run_profile() (
@@ -212,6 +228,13 @@ run_profile() (
         >"$artifact_dir/volume-create.txt"
     volume_created=1
 
+    local -a php_ini_mount=()
+    if [[ -n "$PHP_INI_FILE" ]]; then
+        php_ini_mount=(
+            --mount "type=bind,src=$SCRIPT_DIR/lab/$PHP_INI_FILE,dst=/usr/local/etc/php/conf.d/zz-php2shell.ini,readonly"
+        )
+    fi
+
     "$DOCKER_BIN" create \
         --name "$target_name" \
         --network "$network_name" \
@@ -219,14 +242,15 @@ run_profile() (
         --security-opt no-new-privileges:true \
         --pids-limit 64 \
         --memory 512m \
+        --env "PHP2SHELL_PRODUCTION_INI=$PRODUCTION_INI" \
         --tmpfs /tmp:rw,nosuid,nodev,size=128m \
-        --mount "type=bind,src=$SCRIPT_DIR/lab/php.ini,dst=/usr/local/etc/php/conf.d/zz-php2shell.ini,readonly" \
+        "${php_ini_mount[@]}" \
         --mount "type=bind,src=$SCRIPT_DIR/lab/apache.conf,dst=/etc/apache2/conf-enabled/zz-php2shell.conf,readonly" \
         --mount "type=bind,src=$SCRIPT_DIR/lab/index.php,dst=/var/www/html/index.php,readonly" \
         --mount "type=bind,src=$SCRIPT_DIR/lab/runtime.php,dst=/var/www/html/runtime.php,readonly" \
         --mount "type=volume,src=$volume_name,dst=/out" \
         "$TARGET_IMAGE" \
-        sh -eu -c 'chown www-data:www-data /out; rm -f /out/p; exec apache2-foreground' \
+        sh -eu -c 'if [ "$PHP2SHELL_PRODUCTION_INI" = 1 ]; then cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini; fi; chown www-data:www-data /out; rm -f /out/p; exec apache2-foreground' \
         >"$artifact_dir/target-container-id.txt"
     created_containers+=("$target_name")
     "$DOCKER_BIN" start "$target_name" >/dev/null

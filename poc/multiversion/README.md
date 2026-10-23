@@ -7,7 +7,7 @@
 > systems or public wargame services.
 
 This directory contains a profile-driven reproduction of CVE-2026-109619 for
-three exact official `linux/amd64` PHP Apache images. A PHP version string is
+four exact official `linux/amd64` PHP Apache images. A PHP version string is
 not enough: the image digest, image ID, `libphp` hash/build ID and symbols,
 runtime settings, request geometry, and heap calibration must all match.
 
@@ -15,6 +15,7 @@ runtime settings, request geometry, and heap calibration must all match.
 
 | Profile | Stage 2 | Stage 3 | Local proof |
 |---|---|---|---|
+| PHP 8.2.34 | pure-HTTP/OOM B1, raw SID offset `0xe2968` | fake array at main chunk `+0xf9398` | 5/5 fresh runs, including one independent run |
 | PHP 8.3.35 | adaptive window `0x20000`, 150 arrays | r0 `0x74180`, 400 spray fields | 2/2 independent runs |
 | PHP 8.4.26 | fixed array | fixed carrier at `0x690d8` | 4/4 documented runs |
 | PHP 8.5.11 | adaptive window `0x20000`, 150 arrays | r0 `0x73180`, one 19-byte pre-session field, 128 total spray fields | 2/2 independent runs |
@@ -24,10 +25,14 @@ field is included in the profiled total of 128. All proofs contained
 `uid=33(www-data)` and came from ptrace-free runs on fresh internal Docker
 networks.
 
-PHP 8.2.34, 8.1.34, and 7.2.34 are deliberately **non-runnable** here. This
-does not mean those branches are unaffected. The current chain cannot obtain
-its required session-cookie disclosure on those runtimes; changing offsets or
-filler counts is insufficient. See [SUPPORT.md](SUPPORT.md).
+PHP 8.2.34 uses the profile-interpreted `pure-http-oom-v1` path with the stock
+`php.ini-production` 128M, `display_errors=Off` runtime. Its tail A1 request preserves the stale
+session ID, B1 discloses the exact-build main chunk and `libphp`, and A2/B2
+reclaims the stale session value with the fixed proof payload. PHP 8.2.35
+stopped at B1 with no heap pointers and no proof in 3/3 fresh controls.
+
+PHP 8.1.34 and 7.2.34 remain deliberately **non-runnable**. This does not mean
+those branches are unaffected; see [SUPPORT.md](SUPPORT.md).
 
 ## Run in WSL or Linux
 
@@ -82,3 +87,6 @@ part from `78ResearchLab/PHP2Shell-Full-Chain-Exploit` at commit
 `167085410a9342fafbd1bd64f5006920dbc83b8e`; the MIT notice is preserved in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
 [THIRD_PARTY_LICENSES/78ResearchLab-MIT.txt](THIRD_PARTY_LICENSES/78ResearchLab-MIT.txt).
+The PHP 8.2 request bytes and heap geometry were calibrated and byte-hash
+checked in the local lab. The 9bie work is cited transparently as prior art;
+its source files are not redistributed here.

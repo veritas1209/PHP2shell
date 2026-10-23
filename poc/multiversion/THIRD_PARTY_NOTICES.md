@@ -14,3 +14,15 @@ are adapted in part from:
 The complete permission notice is retained in
 `THIRD_PARTY_LICENSES/78ResearchLab-MIT.txt` and `LICENSE`.
 
+The A1/B1/A2/B2 algorithm used by the pure-HTTP variant follows prior art in
+the following no-license repository, reviewed at the listed commit:
+
+- **php2shell-bypass-aslr-exp**, 9bie
+- Repository: <https://github.com/9bie/php2shell-bypass-aslr-exp>
+- Reviewed commit: `17e98ee81025cccfd94b4f9c9a17bf269c65ff75`
+- License detected at review time: none
+
+Its source files are not included in this release. The PHP 8.2 profile records
+locally measured geometry, and a generic declarative renderer is checked
+against the locally reproduced A1 request length and SHA-256.
+

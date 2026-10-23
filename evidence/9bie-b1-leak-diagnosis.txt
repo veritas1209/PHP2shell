@@ -2,7 +2,7 @@
 =================================
 
 Repository
-  work/php2shell-9bie
+  https://github.com/9bie/php2shell-bypass-aslr-exp
   commit 17e98ee81025cccfd94b4f9c9a17bf269c65ff75
 
 Target used for this diagnostic run
@@ -60,14 +60,12 @@ Root cause
   7495 / 1095 / 87 / 79. Therefore the heap layout, stale-id OOB read,
   response decoding, qword alignment, and main-chunk selection all worked.
 
-Minimum patch
+Minimum diagnostic change
 
---- a/exploit.py
-+++ b/exploit.py
-@@
--        if 0x7f0000000000 <= q <= 0x7fffffffffff:
-+        if 0x700000000000 <= q < 0x800000000000:
-             counts[q] += 1
+  For the local diagnostic only, the accepted high-user-address interval was
+  widened from the original 0x7f-prefixed range to the half-open interval
+  0x700000000000 through 0x800000000000. No upstream source file or modified
+  copy of that source is included in this release.
 
 Validation after applying only that change in a pipe (the repository file was
 not altered during the run):

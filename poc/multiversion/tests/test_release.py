@@ -22,6 +22,7 @@ from verify_observation import verify as verify_observation  # noqa: E402
 
 
 PROFILE_NAMES = {
+    "php-8.2.34-apache-amd64-pure-http-oom": "php-8.2.34-apache-amd64-pure-http-oom.json",
     "php-8.3.35-apache-amd64-r0-spray": "php-8.3.35-apache-amd64-r0-spray.json",
     "php-8.4.26-apache-amd64-fixed-carrier": "php-8.4.26-apache-amd64-fixed.json",
     "php-8.5.11-apache-amd64-r0-spray": "php-8.5.11-apache-amd64-r0-spray.json",
@@ -31,11 +32,18 @@ PROFILE_NAMES = {
 class ReleaseProfileTests(unittest.TestCase):
     def test_exact_allow_list_profiles_are_verified(self) -> None:
         actual = {}
+        candidates = {}
         for path in sorted((ROOT / "profiles").glob("*.json")):
             profile = load_profile(path)
-            require_verified(profile)
-            actual[profile.id] = path.name
+            if profile.raw["verification"]["state"] == "verified":
+                require_verified(profile)
+                actual[profile.id] = path.name
+            else:
+                with self.assertRaises(ProfileError):
+                    require_verified(profile)
+                candidates[profile.id] = path.name
         self.assertEqual(actual, PROFILE_NAMES)
+        self.assertEqual(candidates, {})
 
     def test_adaptive_profiles_have_evidence_backed_shapes(self) -> None:
         p83 = load_profile(ROOT / "profiles" / PROFILE_NAMES["php-8.3.35-apache-amd64-r0-spray"])
@@ -169,6 +177,7 @@ class RunnerStaticTests(unittest.TestCase):
         self.assertNotRegex(text, r"(?:^|\s)--publish(?:\s|=)")
         self.assertNotRegex(text, r"(?:^|\s)-p\s")
         self.assertIn("network create --internal", text)
+        self.assertIn("cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini", text)
         self.assertRegex(text, r'python@sha256:[0-9a-f]{64}')
         self.assertIn("--user 65532:65532", text)
         self.assertNotIn('$(id -u)', text)
@@ -185,9 +194,13 @@ class RunnerStaticTests(unittest.TestCase):
         hash_pos = text.index('sha256sum -- "$scratch_dir/in/profile.json"')
         self.assertLess(copy_pos, hash_pos)
 
-    def test_unsupported_branches_are_not_profiles(self) -> None:
+    def test_php82_verified_profile_is_runner_allow_listed(self) -> None:
         names = "\n".join(path.name for path in (ROOT / "profiles").glob("*.json"))
-        self.assertNotRegex(names, r"php-(?:7\.2|8\.1|8\.2)")
+        self.assertNotRegex(names, r"php-(?:7\.2|8\.1)")
+        self.assertIn(PROFILE_NAMES["php-8.2.34-apache-amd64-pure-http-oom"], names)
+        runner = (ROOT / "run-local-docker-lab.sh").read_text(encoding="utf-8")
+        verified_block = runner.split("readonly -a VERIFIED_PROFILE_IDS=(", 1)[1].split(")", 1)[0]
+        self.assertIn("php-8.2.34-apache-amd64-pure-http-oom", verified_block)
         support = (ROOT / "SUPPORT.md").read_text(encoding="utf-8")
         for version in ("PHP 7.2.34", "PHP 8.1.34", "PHP 8.2.34"):
             self.assertIn(version, support)
@@ -196,7 +209,7 @@ class RunnerStaticTests(unittest.TestCase):
     def test_framework_documentation_matches_release_profiles_and_abi_name(self) -> None:
         framework = (ROOT / "FRAMEWORK.md").read_text(encoding="utf-8")
         self.assertNotIn("the one included runnable", framework)
-        self.assertIn("PHP 8.3.35, 8.4.26, and 8.5.11", framework)
+        self.assertIn("PHP 8.2.34, 8.3.35, 8.4.26, and 8.5.11", framework)
         self.assertIn("zend_execute_data.run_time_cache", framework)
         schema = json.loads((ROOT / "profile-v1.schema.json").read_text(encoding="utf-8"))
         description = schema["$defs"]["abi"]["properties"]["zend_execute_data"]["description"]

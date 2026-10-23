@@ -12,15 +12,16 @@
 ## Recommended: exact-profile multi-version runner
 
 [`multiversion/run-local-docker-lab.sh`](multiversion/run-local-docker-lab.sh)는
-다음 세 exact official PHP Apache `linux/amd64` build만 실행합니다.
+다음 네 exact official PHP Apache `linux/amd64` build만 실행합니다.
 
 | Profile ID | 검증 결과 |
 |---|---|
+| `php-8.2.34-apache-amd64-pure-http-oom` | 5/5 fresh proof; PHP 8.2.35 fixed control 3/3 blocked |
 | `php-8.3.35-apache-amd64-r0-spray` | 2/2 ptrace-free proof |
 | `php-8.4.26-apache-amd64-fixed-carrier` | 4/4 documented proof |
 | `php-8.5.11-apache-amd64-r0-spray` | 2/2 ptrace-free proof |
 
-기본 실행은 세 profile을 모두 순서대로 검사합니다. script는 command-line 인자를
+기본 실행은 네 profile을 모두 순서대로 검사합니다. script는 command-line 인자를
 받지 않습니다.
 
 ```bash
@@ -51,10 +52,10 @@ PHP2SHELL_PROFILE_ID=php-8.3.35-apache-amd64-r0-spray \
 5. proof와 checksummed 관찰 자료를 `artifacts/multiversion/<UTC-run-id>/`에 남긴 뒤
    container, network, volume과 임시 `libphp.so`를 제거합니다.
 
-수정판 PHP 8.3.36, 8.4.27, 8.5.12 대조 실험에서는 같은 체인이 disclosure
-단계에서 실패했고 proof가 생성되지 않았습니다. PHP 8.2.34, 8.1.34, 7.2.34에는
-실행 profile이 없습니다. 현재 session-cookie disclosure가 포팅되지 않았다는
-뜻이며, 해당 branch의 취약성 여부를 부정하는 결론은 아닙니다.
+수정판 PHP 8.2.35, 8.3.36, 8.4.27, 8.5.12 대조 실험에서는 같은 체인이
+disclosure 단계에서 실패했고 proof가 생성되지 않았습니다. PHP 8.1.34와
+7.2.34에는 실행 profile이 없습니다. 이는 해당 branch의 취약성 여부를
+부정하는 결론이 아닙니다.
 
 framework와 profile 형식의 상세 설명은
 [`multiversion/FRAMEWORK.md`](multiversion/FRAMEWORK.md), 지원 경계는

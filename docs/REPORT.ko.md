@@ -6,30 +6,31 @@
 > 본인이 소유하거나 명시적으로 허가받은 격리 환경에서만 재현해야 한다.
 
 이 문서는 초기 PHP 8.4.26/8.4.27의 공식 회귀 테스트와 full-chain A/B 분석을
-보존하면서, 그 뒤에 수행한 PHP 8.3.35 및 8.5.11 exact-build 포팅 결과를 함께
+보존하면서, 그 뒤에 수행한 PHP 8.2.34, 8.3.35 및 8.5.11 exact-build 포팅 결과를 함께
 정리한다. 멀티버전 PoC는 버전 문자열만으로 실행하지 않고 image digest,
 `libphp` identity, runtime과 heap calibration을 모두 검증한다.
 
 ## 종합 결론
 
-후속 포팅에서 다음 세 exact official PHP Apache `linux/amd64` build에 대해
+후속 포팅에서 다음 네 exact official PHP Apache `linux/amd64` build에 대해
 ptrace 없는 fresh-container 실행으로 `zif_system("id>/out/p")` proof를 확인했다.
 
 | 취약 빌드 | full-chain 결과 | 수정 빌드 대조군 | 같은 재현 절차의 결과 |
 |---|---|---|---|
+| PHP 8.2.34 | tail variant 5/5 fresh 실행 성공 | PHP 8.2.35 | 3/3 B1 heap pointer 없음, `PROOF_ABSENT` |
 | PHP 8.3.35 | 2/2 독립 실행 성공 | PHP 8.3.36 | disclosure 실패, `NO_PROOF` |
 | PHP 8.4.26 | 4/4 기록된 실행 성공 | PHP 8.4.27 | stage-1 leak 실패, proof 없음 |
 | PHP 8.5.11 | 2/2 독립 실행 성공 | PHP 8.5.12 | disclosure 실패, `NO_PROOF` |
 
 성공한 모든 proof는
 `uid=33(www-data) gid=33(www-data) groups=33(www-data)`였다. 이 결과는 PHP
-8.3, 8.4, 8.5 계열 전체를 일반적으로 지원한다는 뜻이 아니다. 검증한 image와
-runtime이 정확히 일치하는 세 build만 runnable profile로 제공한다.
+8.2, 8.3, 8.4, 8.5 계열 전체를 일반적으로 지원한다는 뜻이 아니다. 검증한 image와
+runtime이 정확히 일치하는 네 build만 runnable profile로 제공한다.
 
-PHP 8.2.34, 8.1.34, 7.2.34에서는 이 chain이 요구하는 session-cookie disclosure가
-성립하지 않았다. 해당 branch에서는 offset이나 filler count 변경만으로 포팅할 수
-없고 새로운 disclosure primitive가 필요하다. 이는 그 버전들이 취약하지 않다는
-판정이 아니다.
+PHP 8.2.34는 기존 8M/`display_errors=On` recipe 대신 stock
+`php.ini-production`의 128M/`display_errors=Off` 환경에 맞춘
+`pure-http-oom-v1` A1/B1/A2/B2 chain을 사용한다. PHP 8.1.34와 7.2.34에는
+runnable profile이 없으며, 이는 그 버전들이 취약하지 않다는 판정이 아니다.
 
 권장 재현 경로는 `poc/multiversion/run-local-docker-lab.sh`다. 이 runner는 외부
 target이나 임의 명령을 받지 않고, allow-list된 exact profile과 digest-pinned
@@ -150,6 +151,7 @@ leak sequence와 packed `r0` spray를 profile-driven framework에 맞게 일부
 
 | Profile | stage 2 | stage 3 calibration | 관찰 결과 |
 |---|---|---|---|
+| PHP 8.2.34 | pure-HTTP B1, stale SID raw offset `0xe2968`, disclosure `0xc8000` | fake array `main+0xf9398`, A2 880/64/115, B2 384/500/495 | 5/5 fresh proof |
 | PHP 8.3.35 | adaptive `0x20000` window, 150 arrays | `r0=chunk+0x74180`, 400 spray fields | 2/2 direct proof |
 | PHP 8.4.26 | fixed-array leak | fixed carrier `HTDATA=chunk+0x690d8` | 4/4 documented proof |
 | PHP 8.5.11 | adaptive `0x20000` window, 150 arrays | `r0=chunk+0x73180`, one 19-byte pre-session field, 128 total spray fields | 2/2 direct proof |
@@ -165,6 +167,14 @@ PHP 8.3.35와 8.5.11은 fixed-array 주소를 재사용하는 대신 각 request
 window를 다시 관찰하는 adaptive stage 2를 사용한다. 성공한 worker를 stage 2
 사이에서 불필요하게 회전시키지 않도록 lifecycle도 profile에 명시했다.
 
+PHP 8.2.34의 A1은 70-byte boundary, 860개 depth-64 nested file field,
+bin별 filler와 35/35 tail field 하나로 `php_url_encode()` 경로에서 OOM이 나도록
+고정했다. B1은 generated SID의 chunk-relative raw offset `0xe2968`에 fake
+`zend_string`을 배치해 main chunk와 `libphp`를 얻는다. A2/B2는
+`PS(http_session_vars)` stale value를 fake reference와 fake `zend_array`로
+회수하며, 공개 renderer가 만든 A1은 성공 입력과 같은 1,117,868 bytes 및
+SHA-256 `643be7a49073fc4af53a2d87aec3ec4b7f67fade1f0d458d00c6f88675326178`로 검증했다.
+
 ### 수정판 대조군
 
 동일한 취약판 recipe를 공식 수정 image에 적용한 bounded control 결과는 다음과
@@ -172,6 +182,7 @@ window를 다시 관찰하는 adaptive stage 2를 사용한다. 성공한 worker
 
 | Control | 결과 |
 |---|---|
+| PHP 8.2.35 | 3/3 B1에서 heap pointer 없음, status 1, `PROOF_ABSENT` |
 | PHP 8.3.36 | stage-1 disclosure 실패, exploit exit 1, `NO_PROOF` |
 | PHP 8.4.27 | 259-byte 정상 응답만 반환, stage-1 leak 실패, proof 없음 |
 | PHP 8.5.12 | stage-1 disclosure 실패, exploit exit 1, `NO_PROOF` |
@@ -180,20 +191,16 @@ window를 다시 관찰하는 adaptive stage 2를 사용한다. 성공한 worker
 운영 환경의 안전 판정은 PoC 결과가 아니라 official advisory와 vendor backport
 상태를 기준으로 해야 한다.
 
-### PHP 8.2/8.1/7.2 지원 경계
+### PHP 8.1/7.2 지원 경계
 
-PHP 8.2.34의 bounded producer/consumer 실험과 PHP 8.1.34/7.2.34의 source 및
-runtime probe에서는 현재 chain이 기대하는 cookie disclosure가 나오지 않았다.
-이들 branch의 session lifecycle은 cookie-send failure를 이용하는 현재 recipe와
-구조적으로 다르다. 따라서 symbol offset, filler 수 또는 `r0`만 바꾼 profile을
-공개하면 검증되지 않은 지원을 주장하게 된다. 이 세 버전은 intentionally
-non-runnable로 문서화했으며, 취약성 부정이나 별도 exploit chain의 불가능성을
-뜻하지 않는다.
+PHP 8.1.34/7.2.34의 source 및 runtime probe에서는 공개 체인이 기대하는 cookie
+disclosure가 나오지 않았다. 이들 branch는 intentionally non-runnable로
+문서화했으며, 취약성 부정이나 별도 exploit chain의 불가능성을 뜻하지 않는다.
 
 ### 안전한 재현 runner
 
 새 `poc/multiversion/run-local-docker-lab.sh`는 command-line 인자를 거부하고
-bundled verified profile ID 세 개만 허용한다. 각 profile마다 다음 순서로 검증한다.
+bundled verified profile ID 네 개만 허용한다. 각 profile마다 다음 순서로 검증한다.
 
 1. target과 attacker image를 immutable digest로 불러오고 image ID를 확인한다.
 2. fresh `--internal` network와 `/out` volume을 만들며 host port를 게시하지 않는다.
@@ -341,9 +348,9 @@ bool(true)
 
 이번 실험이 확인한 것:
 
-- exact official image와 runtime profile이 일치하는 PHP 8.3.35, 8.4.26,
-  8.5.11에서 full chain이 `www-data` proof를 생성한다.
-- 대응하는 수정 image PHP 8.3.36, 8.4.27, 8.5.12에서는 같은 recipe가 필수
+- exact official image와 runtime profile이 일치하는 PHP 8.2.34, 8.3.35,
+  8.4.26, 8.5.11에서 full chain이 `www-data` proof를 생성한다.
+- 대응하는 수정 image PHP 8.2.35, 8.3.36, 8.4.27, 8.5.12에서는 같은 recipe가 필수
   disclosure를 얻지 못하고 proof를 만들지 않는다.
 - 취약 8.4.26에서 OOM 처리와 RFC1867 전역/세션 상태가 패치 전 방식으로
   동작한다.
@@ -361,7 +368,7 @@ bool(true)
 - 9bie 구현의 B2 heap 배치를 이 호스트에 맞춰 최종 RCE까지 보정하는 작업
 - 다른 커널·배포판·아키텍처에서 공개 PoC의 성공률
 - Bulletdev Chain A/B/C를 공식 두 CVE의 full chain으로 입증하는 것
-- 현재 cookie disclosure가 포팅되지 않은 PHP 8.2/8.1/7.2를 위한 별도
+- 현재 cookie disclosure가 포팅되지 않은 PHP 8.1/7.2를 위한 별도
   disclosure primitive 또는 runnable profile
 
 운영 환경의 취약 여부는 PoC 성공/실패로 판단하면 안 된다. 공식 advisory가
