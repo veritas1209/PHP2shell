@@ -9,6 +9,7 @@ fi
 
 readonly ATTACKER_IMAGE="python@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704"
 readonly -a VERIFIED_PROFILE_IDS=(
+    "php-8.0.30-apache-amd64-trans-sid"
     "php-8.1.34-apache-amd64-trans-sid"
     "php-8.2.34-apache-amd64-pure-http-oom"
     "php-8.3.35-apache-amd64-r0-spray"
@@ -91,7 +92,7 @@ case "$PROFILE_SELECTION" in
     all)
         SELECTED_PROFILE_IDS=("${VERIFIED_PROFILE_IDS[@]}")
         ;;
-    php-8.1.34-apache-amd64-trans-sid|php-8.2.34-apache-amd64-pure-http-oom|php-8.3.35-apache-amd64-r0-spray|php-8.4.26-apache-amd64-fixed-carrier|php-8.5.11-apache-amd64-r0-spray)
+    php-8.0.30-apache-amd64-trans-sid|php-8.1.34-apache-amd64-trans-sid|php-8.2.34-apache-amd64-pure-http-oom|php-8.3.35-apache-amd64-r0-spray|php-8.4.26-apache-amd64-fixed-carrier|php-8.5.11-apache-amd64-r0-spray)
         SELECTED_PROFILE_IDS=("$PROFILE_SELECTION")
         ;;
     *)
@@ -129,6 +130,15 @@ readonly ATTACKER_IMAGE_ID
 
 profile_spec() {
     case "$1" in
+        php-8.0.30-apache-amd64-trans-sid)
+            PROFILE_FILE="php-8.0.30-apache-amd64-trans-sid.json"
+            PROFILE_SHA256="5d4ff8beaff47ca094785806f8aaad860db0ed628c276bbc7c5b3f4cdb893ba2"
+            TARGET_IMAGE="mirror.gcr.io/library/php@sha256:c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2"
+            TARGET_IMAGE_ID="sha256:3357132d6ece3a509ce6f8abf6e7cf9886b343c504cb58428a7302cbe7abe446"
+            PHP_INI_FILE="php80-trans.ini"
+            INDEX_FILE="index-trans-sid.php"
+            PRODUCTION_INI=0
+            ;;
         php-8.1.34-apache-amd64-trans-sid)
             PROFILE_FILE="php-8.1.34-apache-amd64-trans-sid.json"
             PROFILE_SHA256="bb52e592c1bdc81b32413604f804ccdefcc4f255ca8132a2355c66dc51c5564c"

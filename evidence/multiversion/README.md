@@ -1,7 +1,11 @@
 # Multi-version release evidence
 
 These are sanitized records from the final WSL Docker runs on 2026-10-23 and
-2026-10-24. The PHP 8.1 record covers three final fresh-target `zif_system`
+2026-10-24. The PHP 8.0 record covers three final fresh-ASLR HTTP-only
+`zif_system` runs recorded as `b2-root-fill64-7d960-1` through `-3`. Packaged
+runner regression `20261023T180015Z-636870` also passed after integration and
+is not added to that 3/3 verification count. The PHP 8.1 record covers three
+final fresh-target `zif_system`
 runs: `20261023T163513Z-200322`, `20261023T163537Z-203897`, and
 `20261023T163602Z-207516`. The remaining records came from runs
 `20261023T073209Z-2879` and `20261023T083245Z-3369`. The latter used the
@@ -13,6 +17,7 @@ hashed in `release-file-sha256.txt`.
 
 | Exact profile | Exit | Proof |
 |---|---:|---|
+| PHP 8.0.30 Apache | 0 in 3/3 final-chain runs | `uid=33(www-data) gid=33(www-data) groups=33(www-data)` |
 | PHP 8.1.34 Apache | 0 in 3/3 final packaged-runner runs | `uid=33(www-data) gid=33(www-data) groups=33(www-data)` |
 | PHP 8.2.34 Apache | 0 | `uid=33(www-data) gid=33(www-data) groups=33(www-data)` |
 | PHP 8.3.35 Apache | 0 | `uid=33(www-data) gid=33(www-data) groups=33(www-data)` |
@@ -40,6 +45,15 @@ entry; the worker crash is part of the observed availability impact.
 Three earlier 128 MiB HTTP-only calibration runs used `zif_passthru`. They are
 development history and are excluded from the final `zif_system` 3/3 proof
 count and address set.
+
+`php-8.0.30-proof.txt` records the independently measured 108 MiB trans-SID
+geometry and three different HTTP-derived main-chunk and `libphp` bases. Each
+B1 response disclosed exactly 4 MiB and contained 2,117 copies of the
+exact-build `zval_ptr_dtor` candidate. A2 used 64 fillers to place the stale
+reference at main chunk `+0x7d960`; B2 used a one-byte Session ID and fake
+array at `+0x7d800`. B2 returned no normal HTTP status because the worker
+crashed after executing `id>/out/p`. Each run's fresh proof volume contained
+the expected `www-data` identity, which is the success criterion.
 
 `php-8.2.34-release-run.txt` records the sanitized exact image and `libphp`
 identity, live stock `php.ini-production` runtime, retry outcome, fixed proof,

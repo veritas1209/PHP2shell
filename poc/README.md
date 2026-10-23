@@ -12,24 +12,25 @@
 ## Recommended: exact-profile multi-version runner
 
 [`multiversion/run-local-docker-lab.sh`](multiversion/run-local-docker-lab.sh)는
-다음 다섯 exact official PHP Apache `linux/amd64` build만 실행합니다.
+다음 여섯 exact official PHP Apache `linux/amd64` build만 실행합니다.
 
 | Profile ID | 검증 결과 |
 |---|---|
+| `php-8.0.30-apache-amd64-trans-sid` | 3/3 fresh HTTP-only proof; 4 MiB trans-SID 응답에서 heap/libphp base 복원 |
 | `php-8.1.34-apache-amd64-trans-sid` | 3/3 fresh HTTP-only proof; heap/libphp base를 trans-SID 응답에서 복원 |
 | `php-8.2.34-apache-amd64-pure-http-oom` | 5/5 fresh proof; PHP 8.2.35 fixed control 3/3 blocked |
 | `php-8.3.35-apache-amd64-r0-spray` | 2/2 ptrace-free proof |
 | `php-8.4.26-apache-amd64-fixed-carrier` | 4/4 documented proof |
 | `php-8.5.11-apache-amd64-r0-spray` | 2/2 ptrace-free proof |
 
-이 다섯 profile은 runner의 exact-build **지원 범위**입니다. 취약점 전체 범위와
+이 여섯 profile은 runner의 exact-build **지원 범위**입니다. 취약점 전체 범위와
 같지 않습니다. PHP CNA의 공식 stable matrix는 8.2–8.5이고, PHP 프로젝트는
 EOL인 7.4/8.0/8.1에 최소 소스 완화를 제공했습니다. Calif/Wiz 연구진은
 버전·SAPI별 경로를 구분해 PHP 5.4.0까지 기술적 영향을 확인했다고 보고합니다.
 PHP 5.4–7.3에는 CNA 열거도 공식 php-src backport도 없습니다. 자세한 구분은
 [`../docs/AFFECTED-SCOPE.md`](../docs/AFFECTED-SCOPE.md)를 참고하세요.
 
-기본 실행은 다섯 profile을 모두 순서대로 검사합니다. script는 command-line 인자를
+기본 실행은 여섯 profile을 모두 순서대로 검사합니다. script는 command-line 인자를
 받지 않습니다.
 
 ```bash
@@ -43,7 +44,7 @@ WSL Ubuntu에서 snap Docker를 사용해도 script가 `/snap/bin/docker`를 자
 한 profile만 실행하려면 bundled allow-list에서 ID를 고를 수 있습니다.
 
 ```bash
-PHP2SHELL_PROFILE_ID=php-8.1.34-apache-amd64-trans-sid \
+PHP2SHELL_PROFILE_ID=php-8.0.30-apache-amd64-trans-sid \
   ./poc/multiversion/run-local-docker-lab.sh
 ```
 
@@ -68,6 +69,11 @@ ptrace 없이 HTTP 응답에서 Zend MM main chunk와 `libphp` base를 복원해
 proof를 만들었습니다. 공통 runner는 single-worker 조건 확인에만
 `/proc/*/comm`을 읽습니다. 자세한 검증은
 [`../docs/PHP-8.1-HTTP-RCE-VALIDATION.md`](../docs/PHP-8.1-HTTP-RCE-VALIDATION.md)에
+있습니다. PHP 8.0.30은 같은 profile interpreter를 사용하지만 108M runtime,
+4 MiB leak과 별도 offset으로 고정된 독립 profile입니다. 네 HTTP 요청 뒤 B2
+worker가 정상 응답 없이 종료돼도 새 `/out` volume의 고정 proof로 성공을
+판정했으며, 세 fresh-ASLR 실행 모두 proof를 만들었습니다. 자세한 검증은
+[`../docs/PHP-8.0-HTTP-RCE-VALIDATION.md`](../docs/PHP-8.0-HTTP-RCE-VALIDATION.md)에
 있습니다.
 
 PHP 7.3.33, 7.4.33, 8.0.30과 PHP 8.1.34의 historical 로컬 보정형 terminal RCE

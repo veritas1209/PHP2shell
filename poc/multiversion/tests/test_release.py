@@ -23,6 +23,7 @@ from verify_observation import verify as verify_observation  # noqa: E402
 
 
 PROFILE_NAMES = {
+    "php-8.0.30-apache-amd64-trans-sid": "php-8.0.30-apache-amd64-trans-sid.json",
     "php-8.1.34-apache-amd64-trans-sid": "php-8.1.34-apache-amd64-trans-sid.json",
     "php-8.2.34-apache-amd64-pure-http-oom": "php-8.2.34-apache-amd64-pure-http-oom.json",
     "php-8.3.35-apache-amd64-r0-spray": "php-8.3.35-apache-amd64-r0-spray.json",
@@ -313,24 +314,29 @@ class RunnerStaticTests(unittest.TestCase):
         hash_pos = text.index('sha256sum -- "$scratch_dir/in/profile.json"')
         self.assertLess(copy_pos, hash_pos)
 
-    def test_php81_and_php82_verified_profiles_are_runner_allow_listed(self) -> None:
+    def test_php80_through_php82_verified_profiles_are_runner_allow_listed(self) -> None:
         names = "\n".join(path.name for path in (ROOT / "profiles").glob("*.json"))
         self.assertNotRegex(names, r"php-7\.2")
+        self.assertIn(PROFILE_NAMES["php-8.0.30-apache-amd64-trans-sid"], names)
         self.assertIn(PROFILE_NAMES["php-8.1.34-apache-amd64-trans-sid"], names)
         self.assertIn(PROFILE_NAMES["php-8.2.34-apache-amd64-pure-http-oom"], names)
         runner = (ROOT / "run-local-docker-lab.sh").read_text(encoding="utf-8")
         verified_block = runner.split("readonly -a VERIFIED_PROFILE_IDS=(", 1)[1].split(")", 1)[0]
+        self.assertIn("php-8.0.30-apache-amd64-trans-sid", verified_block)
         self.assertIn("php-8.1.34-apache-amd64-trans-sid", verified_block)
         self.assertIn("php-8.2.34-apache-amd64-pure-http-oom", verified_block)
         support = (ROOT / "SUPPORT.md").read_text(encoding="utf-8")
-        for version in ("PHP 7.2.34", "PHP 8.1.34", "PHP 8.2.34"):
+        for version in ("PHP 7.2.34", "PHP 8.0.30", "PHP 8.1.34", "PHP 8.2.34"):
             self.assertIn(version, support)
         self.assertIn("must not be interpreted as “not vulnerable”", support)
 
     def test_framework_documentation_matches_release_profiles_and_abi_name(self) -> None:
         framework = (ROOT / "FRAMEWORK.md").read_text(encoding="utf-8")
         self.assertNotIn("the one included runnable", framework)
-        self.assertIn("PHP 8.1.34, 8.2.34, 8.3.35, 8.4.26, and 8.5.11", framework)
+        self.assertIn(
+            "PHP 8.0.30, 8.1.34, 8.2.34, 8.3.35, 8.4.26, and 8.5.11",
+            framework,
+        )
         self.assertIn("zend_execute_data.run_time_cache", framework)
         schema = json.loads((ROOT / "profile-v1.schema.json").read_text(encoding="utf-8"))
         description = schema["$defs"]["abi"]["properties"]["zend_execute_data"]["description"]
@@ -377,6 +383,7 @@ class Php81HttpReleaseStaticTests(unittest.TestCase):
         runner = (ROOT / "run-local-docker-lab.sh").read_text(encoding="utf-8")
         self.assertIn('"php-8.1.34-apache-amd64-trans-sid"', runner)
         self.assertIn('PHP_INI_FILE="php81-trans.ini"', runner)
+        self.assertIn('PHP_INI_FILE="php80-trans.ini"', runner)
         self.assertIn('INDEX_FILE="index-trans-sid.php"', runner)
         self.assertIn('src=$SCRIPT_DIR/lab/$INDEX_FILE,dst=/var/www/html/index.php', runner)
         self.assertIn("network create --internal", runner)
@@ -408,8 +415,10 @@ class Php81HttpReleaseStaticTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         for path in (
             "lab/index-trans-sid.php",
+            "lab/php80-trans.ini",
             "lab/php81-trans.ini",
             "php81_trans_sid.py",
+            "profiles/php-8.0.30-apache-amd64-trans-sid.json",
             "profiles/php-8.1.34-apache-amd64-trans-sid.json",
         ):
             with self.subTest(path=path):
@@ -518,6 +527,48 @@ class Php81HttpReleaseStaticTests(unittest.TestCase):
             for name, path in files.items():
                 with self.subTest(directory=directory.name, path=name):
                     self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), entries[name])
+
+
+class Php80HttpReleaseStaticTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.release_root = ROOT.parents[1]
+        self.profile_path = ROOT / "profiles" / PROFILE_NAMES[
+            "php-8.0.30-apache-amd64-trans-sid"
+        ]
+        self.profile = load_profile(self.profile_path)
+
+    def test_profile_pins_http_only_geometry_and_symbols(self) -> None:
+        require_verified(self.profile)
+        raw = self.profile.raw
+        self.assertEqual(raw["build"]["php"]["version"], "8.0.30")
+        self.assertEqual(
+            raw["build"]["image"]["repo_digest"],
+            "mirror.gcr.io/library/php@sha256:"
+            "c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2",
+        )
+        self.assertEqual(raw["runtime"]["memory_limit"], "108M")
+        self.assertEqual(raw["symbols"]["zif_system"]["offset"], "0x3495d0")
+        self.assertEqual(raw["symbols"]["zval_ptr_dtor"]["offset"], "0x4319a0")
+        self.assertEqual(raw["request_recipe"]["b1"]["target_offset"], "0x126260")
+        self.assertEqual(raw["request_recipe"]["b1"]["fake_len"], "0x400000")
+        self.assertEqual(raw["request_recipe"]["b1"]["main_qword_offset"], "0xd9d88")
+        self.assertEqual(raw["request_recipe"]["a2"]["fillers"]["count"], 64)
+        self.assertEqual(raw["request_recipe"]["b2"]["session_value"], "a")
+        self.assertEqual(raw["request_recipe"]["b2"]["reference_offset"], "0x7d960")
+        self.assertEqual(raw["request_recipe"]["b2"]["fake_array_offset"], "0x7d800")
+
+    def test_public_evidence_records_three_final_system_runs(self) -> None:
+        evidence = (
+            self.release_root / "evidence" / "multiversion" / "php-8.0.30-proof.txt"
+        ).read_text(encoding="utf-8")
+        self.assertIn("runs=3/3", evidence)
+        self.assertIn("process_memory_access=false", evidence)
+        self.assertIn("proof_command=id>/out/p", evidence)
+        self.assertIn("terminal_symbol=zif_system", evidence)
+        self.assertIn("terminal_offset=0x3495d0", evidence)
+        self.assertIn("b1_leak_length=0x400000", evidence)
+        self.assertIn("b1_dtor_hits=2117", evidence)
+        self.assertIn("b2_http_response=empty", evidence)
 
 
 class LegacyScopeProbeStaticTests(unittest.TestCase):

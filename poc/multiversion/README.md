@@ -7,11 +7,11 @@
 > systems or public wargame services.
 
 This directory contains a profile-driven reproduction of CVE-2026-109619 for
-five exact official `linux/amd64` PHP Apache images. A PHP version string is
+six exact official `linux/amd64` PHP Apache images. A PHP version string is
 not enough: the image digest, image ID, `libphp` hash/build ID and symbols,
 runtime settings, request geometry, and heap calibration must all match.
 
-The five images are this harness's exact-build support set, not the full
+The six images are this harness's exact-build support set, not the full
 affected-version range. The PHP CNA matrix enumerates maintained PHP 8.2–8.5
 lines, PHP published minimal mitigations for EOL 7.4/8.0/8.1, and Calif/Wiz
 report version- and SAPI-dependent paths back to PHP 5.4.0. PHP 5.4–7.3 have
@@ -22,6 +22,7 @@ neither CNA enumeration nor an official php-src backport branch. See
 
 | Profile | Stage 2 | Stage 3 | Local proof |
 |---|---|---|---|
+| PHP 8.0.30 | FILE_START OOM then 4 MiB trans-SID leak, raw SID offset `0x126260` | streamed 160 MiB A2 with 64 fillers, then fake reference at main chunk `+0x7d960` | 3/3 fresh HTTP-only runs |
 | PHP 8.1.34 | FILE_START OOM then trans-SID leak, raw SID offset `0x1fa120` | streamed 160 MiB A2 then fake reference at main chunk `+0x74160` | 3/3 fresh HTTP-only runs |
 | PHP 8.2.34 | pure-HTTP/OOM B1, raw SID offset `0xe2968` | fake array at main chunk `+0xf9398` | 5/5 fresh runs, including one independent run |
 | PHP 8.3.35 | adaptive window `0x20000`, 150 arrays | r0 `0x74180`, 400 spray fields | 2/2 independent runs |
@@ -50,7 +51,18 @@ GDB nor ptrace. See the
 Those three proofs came from the final `zif_system` runner. Three earlier
 128 MiB HTTP-only calibration runs used `zif_passthru` and are excluded from
 the final profile's proof count and published address set.
-For this profile only, the runner mounts `lab/index-trans-sid.php`, which emits
+PHP 8.0.30 uses the same declarative interpreter with an independently
+measured 108 MiB geometry. A1 leaves the raw SID at main chunk `+0x126260`;
+B1 recovers a 4 MiB leak and finds the exact-build `zval_ptr_dtor` candidate
+2,117 times; A2 with 64 fillers leaves the stale reference at `+0x7d960`; and
+B2 uses a one-byte Session ID to avoid the PHP 8.0 files-handler allocation
+class before reclaiming a fake array at `+0x7d800`. Its 3/3 final runs used
+only HTTP-derived bases. B2 closed the connection after executing the fixed
+proof command, so success was decided from the fresh `/out/p` file rather than
+an HTTP status. See the
+[PHP 8.0 validation report](../../docs/PHP-8.0-HTTP-RCE-VALIDATION.md).
+
+For these two profiles, the runner mounts `lab/index-trans-sid.php`, which emits
 one fixed local `/next` link for PHP's URL rewriter. The remaining profiles
 continue to use `lab/index.php`.
 
@@ -75,7 +87,7 @@ To run one exact profile, set the allow-listed selector. It never accepts a
 URL, image, numeric offset, or command from the environment:
 
 ```sh
-PHP2SHELL_PROFILE_ID=php-8.1.34-apache-amd64-trans-sid \
+PHP2SHELL_PROFILE_ID=php-8.0.30-apache-amd64-trans-sid \
   ./run-local-docker-lab.sh
 ```
 

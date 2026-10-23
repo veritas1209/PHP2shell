@@ -8,9 +8,15 @@ PHP 8.2.34, its final release-path run ID was `20261023T083245Z-3369`.
 PHP 8.1.34's final `zif_system` trans-SID profile passed the packaged runner on
 three fresh targets as runs `20261023T163513Z-200322`,
 `20261023T163537Z-203897`, and `20261023T163602Z-207516`.
+PHP 8.0.30's final HTTP-only chain passed on three fresh-ASLR targets recorded
+as `b2-root-fill64-7d960-1`, `b2-root-fill64-7d960-2`, and
+`b2-root-fill64-7d960-3`. After integration, packaged-runner regression
+`20261023T180015Z-636870` also exited 0 with the same proof. It is recorded
+separately and does not increase the profile's verification count of three.
 
 | Exact profile | Runner exit | Proof |
 |---|---:|---|
+| `php-8.0.30-apache-amd64-trans-sid` | 0 in 3/3 final-chain runs; packaged regression 0 | `uid=33(www-data) gid=33(www-data) groups=33(www-data)` |
 | `php-8.1.34-apache-amd64-trans-sid` | 0 in 3/3 final release runs | `uid=33(www-data) gid=33(www-data) groups=33(www-data)` |
 | `php-8.2.34-apache-amd64-pure-http-oom` | 0 | `uid=33(www-data) gid=33(www-data) groups=33(www-data)` |
 | `php-8.3.35-apache-amd64-r0-spray` | 0 | `uid=33(www-data) gid=33(www-data) groups=33(www-data)` |
@@ -47,9 +53,24 @@ no lab container, network, or proof volume. These runs did not read target
 addresses and lifecycle details are in
 [`PHP-8.1-HTTP-RCE-VALIDATION.md`](../../docs/PHP-8.1-HTTP-RCE-VALIDATION.md).
 
-After the proof write, the affected Apache worker terminated with SIGSEGV and
-Apache recorded `AH00052`. The fourth POST therefore has no normal access-log
-entry. This worker crash is part of the observed availability impact.
+The PHP 8.0.30 chain also sent four requests at a profiled 108 MiB memory
+limit. A1 returned 500 and left the raw Session ID at main chunk `+0x126260`.
+B1 returned 200 with an exact 4 MiB trans-SID leak; all three leaks recovered
+different ASLR bases and contained 2,117 hits for the exact-build
+`zval_ptr_dtor` candidate. A2 returned 500 after the streamed 160 MiB recipe
+with 64 fillers left a stale reference at `+0x7d960`. B2 used a one-byte SID,
+400 controlled 4 KiB-class values, and a fake array at `+0x7d800`. It executed
+`id>/out/p` before the worker closed the connection without a normal HTTP
+status. Each fresh proof file contained the expected `www-data` identity.
+The success decision therefore comes from the proof volume, not a B2 response.
+The exact fingerprint, addresses, and request geometry are in
+[`PHP-8.0-HTTP-RCE-VALIDATION.md`](../../docs/PHP-8.0-HTTP-RCE-VALIDATION.md).
+
+For PHP 8.1, the affected Apache worker terminated with SIGSEGV after the proof
+write and Apache recorded `AH00052`. Its fourth POST therefore has no normal
+access-log entry. PHP 8.0 likewise closed B2 only after the proof write and
+returned no normal status. These worker crashes are part of the observed
+availability impact.
 
 Three earlier 128 MiB HTTP-only calibration runs terminated at `zif_passthru`.
 They remain development history and are excluded from the final profile's
