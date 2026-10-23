@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "kind": "non-runnable-patched-control-identities",
+  "runnable": false,
+  "notes": "Identity and bounded negative-result records only. No request recipe is included.",
+  "controls": [
+    {
+      "php_version": "8.3.36",
+      "repo_digest": "php@sha256:756c2884677bedea30afaa95811b42cd3ff251203291c5820c1ad209e86c9fb4",
+      "image_id": "sha256:7ee673f08963aa38fcbd9732a209b20bc74a9fe264feeed8252ec4594734ccea",
+      "result": "information disclosure failed; exit 1; NO_PROOF"
+    },
+    {
+      "php_version": "8.4.27",
+      "repo_digest": "php@sha256:e6bad969f0b673ce9121c88dabb53488ab1ca139d8ebfac1d1b1ab63f245f725",
+      "image_id": "sha256:675af91f3349cf6dba7bd50ce967eb38732c5aa23b9e5b021dc15e2b1a2d1e5e",
+      "result": "stage-1 leak failed; no proof"
+    },
+    {
+      "php_version": "8.5.12",
+      "repo_digest": "php@sha256:e25ab14ef2cfec3bab9dd66c6cf871691146f428fbd72241b1a2c38fcacf92f5",
+      "image_id": "sha256:3aaf6c3363d21d928e512092ef5af8a3528cbde3bd001401e389242d94796cae",
+      "result": "information disclosure failed; exit 1; NO_PROOF"
+    }
+  ]
+}

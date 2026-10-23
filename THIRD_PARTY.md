@@ -1,23 +1,40 @@
 # Third-party material
 
-이 저장소는 다음 프로젝트의 동작을 검토했지만 전체 소스나 수정본을 vendoring하지
-않습니다.
+이 저장소의 multi-version framework는 다음 MIT 라이선스 프로젝트에서 일부
+코드를 수정·확장해 포함합니다.
+
+| Project | Reviewed commit | License | Treatment here |
+|---|---|---|---|
+| [`78ResearchLab/PHP2Shell-Full-Chain-Exploit`](https://github.com/78ResearchLab/PHP2Shell-Full-Chain-Exploit) | `167085410a9342fafbd1bd64f5006920dbc83b8e` | MIT | request lifecycle, leak sequence 및 packed `r0` spray를 일부 수정·확장하여 `poc/multiversion/`에 포함 |
+
+검토한 upstream `exploit.py`의 SHA-256은
+`6aadf7bc93b3f4f93b755fed727d3f017e806419c96853290cf2250e567c1323`입니다.
+원 저작권은 `Copyright (c) 2026 78ResearchLab`이며, attribution과 license 전문은
+다음 파일에 보존합니다.
+
+- `poc/multiversion/THIRD_PARTY_NOTICES.md`
+- `poc/multiversion/THIRD_PARTY_LICENSES/78ResearchLab-MIT.txt`
+- `poc/multiversion/LICENSE`
+
+MIT 라이선스는 해당 고지와 조건에 따라 사용, 수정 및 재배포를 허용합니다. 이
+저장소의 연구 전용 사용 안내는 시험 대상과 사용 행위를 제한하는 안전·권한
+지침이며, 78ResearchLab 코드에 적용되는 MIT 저작권 고지와 허가 문구를 삭제하거나
+대체하지 않습니다.
+
+다음 프로젝트는 동작과 공개 결과를 검토했지만, 검토 시점에 명시적 라이선스를
+확인하지 못해 전체 소스나 수정본을 vendoring하지 않습니다.
 
 | Project | Reviewed commit | License detected at review time | Treatment here |
 |---|---|---|---|
-| `cozybear-dev/cve-2026-109619` | `7a73bb50fbc9d0f5aafce9c135bf4cbf4575601b` | None | Runner가 사용자의 임시 디렉터리로 직접 checkout |
+| `cozybear-dev/cve-2026-109619` | `7a73bb50fbc9d0f5aafce9c135bf4cbf4575601b` | None | Legacy runner가 사용자의 임시 디렉터리로 직접 checkout |
 | `9bie/php2shell-bypass-aslr-exp` | `17e98ee81025cccfd94b4f9c9a17bf269c65ff75` | None | 결과와 commit link만 인용 |
 | `Bulletdev/php2shell-poc` | `2d80235ccdf62bd01c1ef6ce36ae4a93b31c88cd` | None | 분석 결과와 commit link만 인용 |
 
-`poc/run-wsl-docker-lab.sh`는 upstream 파일을 이 저장소에 포함하지 않습니다.
-실행 시 지정 commit을 GitHub에서 임시 checkout하고, 검증된 포인터 하한 한 줄을
-로컬에서 치환한 뒤 Docker lab을 종료하면서 checkout을 삭제합니다.
+기존 `poc/run-wsl-docker-lab.sh`의 자동 checkout과 로컬 patch는 위
+no-license upstream의 권리나 라이선스를 생성하지 않습니다. 사용자는 해당 자료를
+사용하기 전에 별도 허가 또는 적용 가능한 법적 근거를 직접 확인해야 합니다.
 
-이 저장소의 문서나 runner는 위 upstream 코드에 관한 권리 또는 라이선스를
-부여하지 않습니다. 자동 checkout과 로컬 수정도 upstream 라이선스를 생성하지
-않습니다. runner 사용자는 해당 자료의 사용에 필요한 별도 허가 또는 적용 가능한
-법적 근거를 직접 확인해야 합니다.
-
-PHP 프로젝트의 advisory, commit 및 회귀 테스트는 링크로 참조합니다. 공개된
-로그는 이 연구에서 해당 테스트를 실행해 얻은 관찰 출력입니다.
+PHP 프로젝트의 advisory, commit, release와 regression test는 링크로 참조합니다.
+공개된 로그와 exact-build profile은 이 연구에서 격리 Docker 실험을 실행해 얻은
+관찰 결과입니다.
 

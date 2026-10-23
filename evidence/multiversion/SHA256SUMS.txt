@@ -1,0 +1,6 @@
+9ce37ac92870e169b78b50a08651eff48c5fb2beac5080cd0adaa32ae0eec3c0  README.md
+50ed8b6d1c96a0e5a08f8c956c8923bcc4ce13c5cfdb9be4f0ea3c222b0a2c2a  patched-controls.json
+6d99797c5e70f1676baffdaab9979d52aef4d97cb7c457054182abe6e4075c1e  php-8.3.35-proof.txt
+6d99797c5e70f1676baffdaab9979d52aef4d97cb7c457054182abe6e4075c1e  php-8.4.26-proof.txt
+6d99797c5e70f1676baffdaab9979d52aef4d97cb7c457054182abe6e4075c1e  php-8.5.11-proof.txt
+6f214b122f106a26f083efc6264a35c66d8d3c91477da46ab34a813cf59e45cc  release-file-sha256.txt

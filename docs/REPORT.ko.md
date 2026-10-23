@@ -1,11 +1,43 @@
-# PHP2Shell PoC 및 공식 패치 차등 검증 보고서
+# PHP2Shell PoC 멀티버전 및 공식 패치 차등 검증 보고서
 
 작성일: 2026-10-23 (Asia/Seoul)
 
 > 이 문서는 공개된 보안 권고와 수정 릴리스에 대한 사후 보안 연구 기록이다.
 > 본인이 소유하거나 명시적으로 허가받은 격리 환경에서만 재현해야 한다.
 
-## 결론
+이 문서는 초기 PHP 8.4.26/8.4.27의 공식 회귀 테스트와 full-chain A/B 분석을
+보존하면서, 그 뒤에 수행한 PHP 8.3.35 및 8.5.11 exact-build 포팅 결과를 함께
+정리한다. 멀티버전 PoC는 버전 문자열만으로 실행하지 않고 image digest,
+`libphp` identity, runtime과 heap calibration을 모두 검증한다.
+
+## 종합 결론
+
+후속 포팅에서 다음 세 exact official PHP Apache `linux/amd64` build에 대해
+ptrace 없는 fresh-container 실행으로 `zif_system("id>/out/p")` proof를 확인했다.
+
+| 취약 빌드 | full-chain 결과 | 수정 빌드 대조군 | 같은 재현 절차의 결과 |
+|---|---|---|---|
+| PHP 8.3.35 | 2/2 독립 실행 성공 | PHP 8.3.36 | disclosure 실패, `NO_PROOF` |
+| PHP 8.4.26 | 4/4 기록된 실행 성공 | PHP 8.4.27 | stage-1 leak 실패, proof 없음 |
+| PHP 8.5.11 | 2/2 독립 실행 성공 | PHP 8.5.12 | disclosure 실패, `NO_PROOF` |
+
+성공한 모든 proof는
+`uid=33(www-data) gid=33(www-data) groups=33(www-data)`였다. 이 결과는 PHP
+8.3, 8.4, 8.5 계열 전체를 일반적으로 지원한다는 뜻이 아니다. 검증한 image와
+runtime이 정확히 일치하는 세 build만 runnable profile로 제공한다.
+
+PHP 8.2.34, 8.1.34, 7.2.34에서는 이 chain이 요구하는 session-cookie disclosure가
+성립하지 않았다. 해당 branch에서는 offset이나 filler count 변경만으로 포팅할 수
+없고 새로운 disclosure primitive가 필요하다. 이는 그 버전들이 취약하지 않다는
+판정이 아니다.
+
+권장 재현 경로는 `poc/multiversion/run-local-docker-lab.sh`다. 이 runner는 외부
+target이나 임의 명령을 받지 않고, allow-list된 exact profile과 digest-pinned
+image만 사용한다. 새 internal Docker network와 proof volume을 만들고 host port를
+공개하지 않으며, live target의 runtime과 `libphp` fingerprint를 검증한 뒤 고정
+명령 `id>/out/p`만 실행한다.
+
+### 초기 PHP 8.4 A/B 조사
 
 공식 패치가 겨냥한 취약 상태와 패치 효과는 WSL2 Docker에서 재현됐다.
 PHP 8.4.26과 8.4.27을 같은 입력으로 비교했을 때 다음 두 차이가 결정적으로
@@ -104,7 +136,79 @@ offset, heap 배치, 누출 창 형태에 강하게 의존한다.
 “CVE-2026-109618/109619을 재현했다”는 증거로는 부적합하다. Chain A나 C가 해당
 저장소의 인공 lab에서 명령을 실행하더라도 공식 CVE 재현을 뜻하지 않는다.
 
-## 실험 환경
+## 후속 exact-build 멀티버전 포팅
+
+후속 작업에서는 MIT 라이선스의
+[`78ResearchLab/PHP2Shell-Full-Chain-Exploit`](https://github.com/78ResearchLab/PHP2Shell-Full-Chain-Exploit)
+commit `167085410a9342fafbd1bd64f5006920dbc83b8e`를 기준으로 request lifecycle,
+leak sequence와 packed `r0` spray를 profile-driven framework에 맞게 일부
+수정·확장했다. 검토한 upstream `exploit.py` SHA-256은
+`6aadf7bc93b3f4f93b755fed727d3f017e806419c96853290cf2250e567c1323`이며,
+원 저작권 고지와 MIT 전문을 `poc/multiversion/` 아래에 보존했다.
+
+### Runnable profile
+
+| Profile | stage 2 | stage 3 calibration | 관찰 결과 |
+|---|---|---|---|
+| PHP 8.3.35 | adaptive `0x20000` window, 150 arrays | `r0=chunk+0x74180`, 400 spray fields | 2/2 direct proof |
+| PHP 8.4.26 | fixed-array leak | fixed carrier `HTDATA=chunk+0x690d8` | 4/4 documented proof |
+| PHP 8.5.11 | adaptive `0x20000` window, 150 arrays | `r0=chunk+0x73180`, one 19-byte pre-session field, 128 total spray fields | 2/2 direct proof |
+
+PHP 8.5.11에서 초기 recipe가 실패한 원인은 stale multipart name storage가
+비정상적인 `zend_string` 길이로 다시 해석되어 stage 3 전에 큰 realloc으로
+이어졌기 때문이다. session/progress field 앞에 평범한 19-byte field 하나를
+배치하고, 전체 spray field 수를 128로 유지하자 ptrace 없이 두 번 연속 proof를
+얻었다. 이 배치는 8.5.11 exact profile에만 기록했으며 다른 빌드에 일반화하지
+않았다.
+
+PHP 8.3.35와 8.5.11은 fixed-array 주소를 재사용하는 대신 각 request에서 leak
+window를 다시 관찰하는 adaptive stage 2를 사용한다. 성공한 worker를 stage 2
+사이에서 불필요하게 회전시키지 않도록 lifecycle도 profile에 명시했다.
+
+### 수정판 대조군
+
+동일한 취약판 recipe를 공식 수정 image에 적용한 bounded control 결과는 다음과
+같다.
+
+| Control | 결과 |
+|---|---|
+| PHP 8.3.36 | stage-1 disclosure 실패, exploit exit 1, `NO_PROOF` |
+| PHP 8.4.27 | 259-byte 정상 응답만 반환, stage-1 leak 실패, proof 없음 |
+| PHP 8.5.12 | stage-1 disclosure 실패, exploit exit 1, `NO_PROOF` |
+
+대조군의 실패는 공식 수정이 현재 chain의 필수 disclosure를 차단한다는 관찰이다.
+운영 환경의 안전 판정은 PoC 결과가 아니라 official advisory와 vendor backport
+상태를 기준으로 해야 한다.
+
+### PHP 8.2/8.1/7.2 지원 경계
+
+PHP 8.2.34의 bounded producer/consumer 실험과 PHP 8.1.34/7.2.34의 source 및
+runtime probe에서는 현재 chain이 기대하는 cookie disclosure가 나오지 않았다.
+이들 branch의 session lifecycle은 cookie-send failure를 이용하는 현재 recipe와
+구조적으로 다르다. 따라서 symbol offset, filler 수 또는 `r0`만 바꾼 profile을
+공개하면 검증되지 않은 지원을 주장하게 된다. 이 세 버전은 intentionally
+non-runnable로 문서화했으며, 취약성 부정이나 별도 exploit chain의 불가능성을
+뜻하지 않는다.
+
+### 안전한 재현 runner
+
+새 `poc/multiversion/run-local-docker-lab.sh`는 command-line 인자를 거부하고
+bundled verified profile ID 세 개만 허용한다. 각 profile마다 다음 순서로 검증한다.
+
+1. target과 attacker image를 immutable digest로 불러오고 image ID를 확인한다.
+2. fresh `--internal` network와 `/out` volume을 만들며 host port를 게시하지 않는다.
+3. live target에서 Apache SAPI, single prefork worker, runtime 설정과 `libphp.so`를
+   관찰하고 SHA-256, GNU build ID와 symbol offset을 profile에 대조한다.
+4. read-only, capability-free attacker container에서 fixed proof command
+   `id>/out/p`만 실행한다.
+5. proof와 checksummed artifacts를 기록하고 container, network, volume 및 임시
+   `libphp.so`를 제거한다.
+
+기존 `poc/run-wsl-docker-lab.sh`는 초기 PHP 8.4 A/B 결과를 보존하는 legacy
+runner다. 새 실험에는 exact-build fingerprinting과 internal-only network를 갖춘
+multi-version runner를 사용한다.
+
+## 초기 PHP 8.4 실험 환경
 
 | 항목 | 값 |
 |---|---|
@@ -237,6 +341,10 @@ bool(true)
 
 이번 실험이 확인한 것:
 
+- exact official image와 runtime profile이 일치하는 PHP 8.3.35, 8.4.26,
+  8.5.11에서 full chain이 `www-data` proof를 생성한다.
+- 대응하는 수정 image PHP 8.3.36, 8.4.27, 8.5.12에서는 같은 recipe가 필수
+  disclosure를 얻지 못하고 proof를 만들지 않는다.
 - 취약 8.4.26에서 OOM 처리와 RFC1867 전역/세션 상태가 패치 전 방식으로
   동작한다.
 - 패치 8.4.27에서 공식 두 회귀 시나리오가 기대하는 안전 불변식이 성립한다.
@@ -253,6 +361,8 @@ bool(true)
 - 9bie 구현의 B2 heap 배치를 이 호스트에 맞춰 최종 RCE까지 보정하는 작업
 - 다른 커널·배포판·아키텍처에서 공개 PoC의 성공률
 - Bulletdev Chain A/B/C를 공식 두 CVE의 full chain으로 입증하는 것
+- 현재 cookie disclosure가 포팅되지 않은 PHP 8.2/8.1/7.2를 위한 별도
+  disclosure primitive 또는 runnable profile
 
 운영 환경의 취약 여부는 PoC 성공/실패로 판단하면 안 된다. 공식 advisory가
 지정한 버전이면 [지원되는 패치 릴리스](https://www.php.net/releases/8_4_27.php)나
@@ -269,6 +379,8 @@ bool(true)
 - 모든 공개 증거 파일의 SHA-256 manifest
 
 host bind path가 포함된 Docker inspect JSON, 사설 작업 경로, 명시적 라이선스가
-없는 upstream PoC 전체 소스는 공개 자료에서 제외했다. 최종 PoC runner는
-고정 upstream 커밋을 임시 checkout하고 검증한 한 줄만 치환한다.
+없는 upstream PoC 전체 소스는 공개 자료에서 제외했다. 새 multi-version runner는
+MIT 고지를 보존한 bundled framework와 검증된 exact profile만 사용한다. 기존
+PHP 8.4 runner의 고정 upstream commit 임시 checkout 방식은 초기 조사 재현을 위한
+legacy 경로로 남겼다.
 

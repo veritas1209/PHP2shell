@@ -1,0 +1,4 @@
+/.work/
+/artifacts/
+__pycache__/
+*.py[cod]

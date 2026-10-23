@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/php2shell/profile-v1.schema.json",
+  "title": "php2shell exact local build profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "verification",
+    "build",
+    "symbols",
+    "abi",
+    "runtime",
+    "request_recipe",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"},
+    "verification": {"$ref": "#/$defs/verification"},
+    "build": {"$ref": "#/$defs/build"},
+    "symbols": {"$ref": "#/$defs/symbols"},
+    "abi": {"$ref": "#/$defs/abi"},
+    "runtime": {"$ref": "#/$defs/runtime"},
+    "request_recipe": {"$ref": "#/$defs/requestRecipe"},
+    "provenance": {"$ref": "#/$defs/provenance"}
+  },
+  "$defs": {
+    "hex": {
+      "type": "string",
+      "pattern": "^0x(?:0|[1-9a-f][0-9a-f]*)$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "runs", "proof", "verified_at"],
+      "properties": {
+        "state": {"enum": ["candidate", "verified", "retired"]},
+        "runs": {"type": "integer", "minimum": 0},
+        "proof": {"type": "string", "minLength": 1},
+        "verified_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo_digest", "image_id", "platform"],
+      "properties": {
+        "repo_digest": {"type": "string", "pattern": "^[^@]+@sha256:[0-9a-f]{64}$"},
+        "image_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "platform": {"const": "linux/amd64"}
+      }
+    },
+    "phpBuild": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sapi", "zts", "debug"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+].*)?$"},
+        "sapi": {"const": "apache2handler"},
+        "zts": {"const": false},
+        "debug": {"type": "boolean"}
+      }
+    },
+    "libphp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path", "sha256", "gnu_build_id", "elf_class", "endianness",
+        "machine", "type"
+      ],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/.*libphp[^/]*\\.so$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "gnu_build_id": {
+          "anyOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^[0-9a-f]{16,128}$"}
+          ]
+        },
+        "elf_class": {"const": 64},
+        "endianness": {"const": "little"},
+        "machine": {"const": "EM_X86_64"},
+        "type": {"const": "ET_DYN"}
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "php", "libphp"],
+      "properties": {
+        "image": {"$ref": "#/$defs/image"},
+        "php": {"$ref": "#/$defs/phpBuild"},
+        "libphp": {"$ref": "#/$defs/libphp"}
+      }
+    },
+    "symbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "offset"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "offset": {"$ref": "#/$defs/hex"}
+      }
+    },
+    "symbols": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zif_system", "zval_ptr_dtor"],
+      "properties": {
+        "zif_system": {"$ref": "#/$defs/symbol"},
+        "zval_ptr_dtor": {"$ref": "#/$defs/symbol"}
+      }
+    },
+    "offsetMap": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/hex"},
+      "minProperties": 1
+    },
+    "abi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pointer_size", "page_size", "zend_mm_chunk_size", "zend_string",
+        "zval", "zend_reference", "zend_array", "zend_execute_data", "types"
+      ],
+      "properties": {
+        "pointer_size": {"const": 8},
+        "page_size": {"$ref": "#/$defs/hex"},
+        "zend_mm_chunk_size": {"$ref": "#/$defs/hex"},
+        "zend_string": {"$ref": "#/$defs/offsetMap"},
+        "zval": {"$ref": "#/$defs/offsetMap"},
+        "zend_reference": {"$ref": "#/$defs/offsetMap"},
+        "zend_array": {"$ref": "#/$defs/offsetMap"},
+        "zend_execute_data": {
+          "$ref": "#/$defs/offsetMap",
+          "description": "Schema v1 compatibility note: key call_info names the PHP 8 zend_execute_data.run_time_cache member offset."
+        },
+        "types": {"$ref": "#/$defs/offsetMap"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mpm", "workers", "memory_limit", "post_max_size",
+        "upload_max_filesize", "max_input_vars", "display_errors",
+        "file_uploads", "session_extension", "upload_progress_enabled",
+        "session_name", "upload_progress_name"
+      ],
+      "properties": {
+        "mpm": {"const": "prefork"},
+        "workers": {"type": "integer", "minimum": 1},
+        "memory_limit": {"type": "string", "minLength": 1},
+        "post_max_size": {"type": "string", "minLength": 1},
+        "upload_max_filesize": {"type": "string", "minLength": 1},
+        "max_input_vars": {"type": "integer", "minimum": 1},
+        "display_errors": {"type": "boolean"},
+        "file_uploads": {"const": true},
+        "session_extension": {"const": true},
+        "upload_progress_enabled": {"const": true},
+        "session_name": {"type": "string", "minLength": 1},
+        "upload_progress_name": {"type": "string", "minLength": 1}
+      }
+    },
+    "pad": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name_len", "value_len", "repeat"],
+      "properties": {
+        "name_len": {"type": "integer", "minimum": 0, "maximum": 4096},
+        "value_len": {"type": "integer", "minimum": 0, "maximum": 4096},
+        "repeat": {"type": "integer", "minimum": 1, "maximum": 512}
+      }
+    },
+    "fixedStage2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "fillers", "target", "target_count", "value_len"],
+      "properties": {
+        "strategy": {"const": "fixed-array-v1"},
+        "fillers": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "target": {"type": "integer", "minimum": 0, "maximum": 4095},
+        "target_count": {"type": "integer", "minimum": 1, "maximum": 512},
+        "value_len": {"type": "integer", "minimum": 1, "maximum": 4096}
+      }
+    },
+    "adaptiveStage2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "window", "arrays"],
+      "properties": {
+        "strategy": {"const": "adaptive-window-v1"},
+        "window": {"$ref": "#/$defs/hex"},
+        "arrays": {"type": "integer", "minimum": 1, "maximum": 512}
+      }
+    },
+    "fixedStage3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy", "htdata_offset", "pads", "prime_fields",
+        "prime_value_len", "carrier_copies"
+      ],
+      "properties": {
+        "strategy": {"const": "fixed-carrier-v1"},
+        "htdata_offset": {"$ref": "#/$defs/hex"},
+        "pads": {"type": "array", "minItems": 1, "maxItems": 512, "items": {"$ref": "#/$defs/pad"}},
+        "prime_fields": {"type": "integer", "minimum": 0, "maximum": 512},
+        "prime_value_len": {"const": 15},
+        "carrier_copies": {"type": "integer", "minimum": 1, "maximum": 512}
+      }
+    },
+    "r0Search": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page_lo", "page_hi_exclusive", "page_step", "lowbits", "releak_every"],
+      "properties": {
+        "page_lo": {"$ref": "#/$defs/hex"},
+        "page_hi_exclusive": {"$ref": "#/$defs/hex"},
+        "page_step": {"$ref": "#/$defs/hex"},
+        "lowbits": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/hex"}
+        },
+        "releak_every": {"type": "integer", "minimum": 1}
+      }
+    },
+    "spray": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value_len", "count", "ht_page_offset"],
+      "properties": {
+        "value_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "count": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "ht_page_offset": {"$ref": "#/$defs/hex"}
+      }
+    },
+    "preSessionFields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "value_len", "name_prefix"],
+      "properties": {
+        "count": {"type": "integer", "minimum": 0, "maximum": 64},
+        "value_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "name_prefix": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,27}$"
+        }
+      }
+    },
+    "r0Stage3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "trigger_pads", "r0_search", "spray", "pre_session_fields"],
+      "properties": {
+        "strategy": {"const": "r0-spray-v1"},
+        "trigger_pads": {"type": "integer", "minimum": 0, "maximum": 4096},
+        "r0_search": {"$ref": "#/$defs/r0Search"},
+        "spray": {"$ref": "#/$defs/spray"},
+        "pre_session_fields": {"$ref": "#/$defs/preSessionFields"}
+      }
+    },
+    "requestRecipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["huge_mb", "rotate_fillers", "stage1", "stage2", "stage3"],
+      "properties": {
+        "huge_mb": {"type": "integer", "minimum": 1, "maximum": 64},
+        "rotate_fillers": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "stage1": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fillers", "allow_cookie_self_calibration"],
+          "properties": {
+            "fillers": {"type": "integer", "minimum": 1, "maximum": 4096},
+            "allow_cookie_self_calibration": {"type": "boolean"}
+          }
+        },
+        "stage2": {
+          "oneOf": [
+            {"$ref": "#/$defs/fixedStage2"},
+            {"$ref": "#/$defs/adaptiveStage2"}
+          ]
+        },
+        "stage3": {
+          "oneOf": [
+            {"$ref": "#/$defs/fixedStage3"},
+            {"$ref": "#/$defs/r0Stage3"}
+          ]
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "notes"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1},
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}
