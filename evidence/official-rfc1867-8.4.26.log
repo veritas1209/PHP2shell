@@ -1,0 +1,48 @@
+<br />
+<b>Warning</b>:  Class __PHP_Incomplete_Class has no unserializer in <b>Unknown</b> on line <b>0</b><br />
+<br />
+<b>Warning</b>:  PHP Request Startup: Class 'Suit' not found in <b>Unknown</b> on line <b>0</b><br />
+<br />
+<b>Warning</b>:  PHP Request Startup: Failed to decode session object. Session has been destroyed in <b>Unknown</b> on line <b>0</b><br />
+<br />
+<b>Warning</b>:  PHP Request Startup: Failed to write session data (files). Please verify that the current setting of session.save_path is correct (/sessions) in <b>Unknown</b> on line <b>0</b><br />
+bool(true)
+bool(true)
+--- record after the update:
+<br />
+<b>Warning</b>:  file_get_contents(/sessions/sess_rfc1867nousercode): Failed to open stream: No such file or directory in <b>/var/www/html/index.php</b> on line <b>51</b><br />
+bool(false)
+string(0) ""
+--- session_start():
+string(17) "rfc1867nousercode"
+<br />
+<b>Warning</b>:  Undefined array key "w" in <b>/var/www/html/index.php</b> on line <b>58</b><br />
+<br />
+<b>Warning</b>:  Attempt to read property "a" on null in <b>/var/www/html/index.php</b> on line <b>58</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "u" in <b>/var/www/html/index.php</b> on line <b>58</b><br />
+<br />
+<b>Warning</b>:  Attempt to read property "a" on null in <b>/var/www/html/index.php</b> on line <b>58</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "c" in <b>/var/www/html/index.php</b> on line <b>58</b><br />
+<br />
+<b>Warning</b>:  Attempt to read property "x" on null in <b>/var/www/html/index.php</b> on line <b>58</b><br />
+NULL
+NULL
+NULL
+<br />
+<b>Warning</b>:  Undefined array key "e" in <b>/var/www/html/index.php</b> on line <b>59</b><br />
+<br />
+<b>Warning</b>:  Trying to access array offset on null in <b>/var/www/html/index.php</b> on line <b>59</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "e" in <b>/var/www/html/index.php</b> on line <b>59</b><br />
+<br />
+<b>Warning</b>:  Trying to access array offset on null in <b>/var/www/html/index.php</b> on line <b>59</b><br />
+bool(false)
+bool(false)
+<br />
+<b>Warning</b>:  Undefined array key "m" in <b>/var/www/html/index.php</b> on line <b>60</b><br />
+NULL
+bool(false)
+
+http_code=200

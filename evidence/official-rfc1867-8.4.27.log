@@ -1,0 +1,24 @@
+bool(false)
+bool(true)
+--- record after the update:
+bool(true)
+string(20) "upload_progress_key|"
+--- session_start():
+autoload(Missing)
+W::__wakeup
+U::__unserialize
+string(17) "rfc1867nousercode"
+int(1)
+int(2)
+string(7) "payload"
+bool(true)
+bool(true)
+object(__PHP_Incomplete_Class)#6 (2) {
+  ["__PHP_Incomplete_Class_Name"]=>
+  string(7) "Missing"
+  ["x"]=>
+  int(3)
+}
+bool(true)
+
+http_code=200

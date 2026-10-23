@@ -1,0 +1,5 @@
+target=PHP 8.4.27
+expected_path=/proof/fixed/p
+result=absent
+status=EXPECTED_NO_FIXED_PROOF
+
