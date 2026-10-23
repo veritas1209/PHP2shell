@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -22,6 +23,7 @@ from verify_observation import verify as verify_observation  # noqa: E402
 
 
 PROFILE_NAMES = {
+    "php-8.1.34-apache-amd64-trans-sid": "php-8.1.34-apache-amd64-trans-sid.json",
     "php-8.2.34-apache-amd64-pure-http-oom": "php-8.2.34-apache-amd64-pure-http-oom.json",
     "php-8.3.35-apache-amd64-r0-spray": "php-8.3.35-apache-amd64-r0-spray.json",
     "php-8.4.26-apache-amd64-fixed-carrier": "php-8.4.26-apache-amd64-fixed.json",
@@ -95,18 +97,62 @@ class ReleaseProfileTests(unittest.TestCase):
             "php": dict(profile.raw["build"]["php"]),
             "runtime": dict(profile.raw["runtime"]),
         }
+        observation["runtime"].update({
+            "session_use_trans_sid": False,
+            "session_use_cookies": True,
+            "session_use_only_cookies": True,
+            "upload_progress_cleanup": True,
+            "url_rewriter_tags": "a=href,area=href,frame=src,form=",
+        })
         image = profile.raw["build"]["image"]
         with tempfile.TemporaryDirectory() as directory:
             observed = Path(directory) / "observed.json"
             observed.write_text(json.dumps(observation), encoding="utf-8")
             self.assertEqual(
                 verify_observation(path, observed, profile.id, image["repo_digest"], image["image_id"]),
-                observation["runtime"],
+                dict(profile.raw["runtime"]),
             )
             observation["runtime"]["workers"] = 2
             observed.write_text(json.dumps(observation), encoding="utf-8")
             with self.assertRaisesRegex(ProfileError, "runtime settings"):
                 verify_observation(path, observed, profile.id, image["repo_digest"], image["image_id"])
+
+    def test_php81_observation_binds_trans_sid_prerequisites(self) -> None:
+        path = ROOT / "profiles" / PROFILE_NAMES["php-8.1.34-apache-amd64-trans-sid"]
+        profile = load_profile(path)
+        observation = {
+            "php": dict(profile.raw["build"]["php"]),
+            "runtime": dict(profile.raw["runtime"]),
+        }
+        image = profile.raw["build"]["image"]
+        with tempfile.TemporaryDirectory() as directory:
+            observed = Path(directory) / "observed.json"
+            observed.write_text(json.dumps(observation), encoding="utf-8")
+            self.assertEqual(
+                verify_observation(
+                    path, observed, profile.id, image["repo_digest"], image["image_id"]
+                ),
+                observation["runtime"],
+            )
+            for key, value in (
+                ("session_use_trans_sid", False),
+                ("session_use_cookies", True),
+                ("session_use_only_cookies", True),
+                ("upload_progress_cleanup", False),
+                ("url_rewriter_tags", "a=href"),
+            ):
+                with self.subTest(runtime_key=key):
+                    changed = json.loads(json.dumps(observation))
+                    changed["runtime"][key] = value
+                    observed.write_text(json.dumps(changed), encoding="utf-8")
+                    with self.assertRaisesRegex(ProfileError, "runtime settings"):
+                        verify_observation(
+                            path,
+                            observed,
+                            profile.id,
+                            image["repo_digest"],
+                            image["image_id"],
+                        )
 
 
 class DockerVerifierTests(unittest.TestCase):
@@ -140,7 +186,17 @@ class DockerVerifierTests(unittest.TestCase):
             "Config": {"Image": self.ref, "User": "65532:65532"},
             "Platform": "linux",
             "State": {"Running": True},
-            "HostConfig": {"NetworkMode": self.network, "PortBindings": None},
+            "HostConfig": {
+                "NetworkMode": self.network,
+                "PortBindings": None,
+                "PublishAllPorts": False,
+                "Privileged": False,
+                "PidMode": "",
+                "ReadonlyRootfs": True,
+                "CapDrop": ["ALL"],
+                "CapAdd": None,
+                "SecurityOpt": ["no-new-privileges:true"],
+            },
             "NetworkSettings": {
                 "Ports": {"80/tcp": None},
                 "Networks": {self.network: {"IPAddress": "172.31.0.2", "GlobalIPv6Address": ""}},
@@ -153,6 +209,9 @@ class DockerVerifierTests(unittest.TestCase):
             verify_container(
                 data, "target", self.image_id, self.ref, self.network, True,
                 "proof", "/out", "rw", "65532:65532",
+                require_read_only=True,
+                require_cap_drop_all=True,
+                require_no_new_privileges=True,
             ),
             ["172.31.0.2"],
         )
@@ -167,6 +226,64 @@ class DockerVerifierTests(unittest.TestCase):
         with self.assertRaisesRegex(VerificationError, "published"):
             verify_container(data, "target", self.image_id, self.ref, self.network, True, "proof", "/out", "rw")
 
+    def test_container_rejects_unsafe_host_configuration(self) -> None:
+        host = {
+            "NetworkMode": self.network,
+            "PortBindings": None,
+            "PublishAllPorts": False,
+            "Privileged": False,
+            "PidMode": "",
+            "ReadonlyRootfs": True,
+            "CapDrop": ["ALL"],
+            "CapAdd": None,
+            "SecurityOpt": ["no-new-privileges:true"],
+        }
+        data = {
+            "Name": "/attacker",
+            "Image": self.image_id,
+            "Config": {"Image": self.ref, "User": "65532:65532"},
+            "Platform": "linux",
+            "State": {"Running": False},
+            "HostConfig": host,
+            "NetworkSettings": {
+                "Ports": {},
+                "Networks": {self.network: {"IPAddress": "", "GlobalIPv6Address": ""}},
+            },
+            "Mounts": [],
+        }
+
+        def verify_hardened() -> None:
+            verify_container(
+                data,
+                "attacker",
+                self.image_id,
+                self.ref,
+                self.network,
+                False,
+                expected_user="65532:65532",
+                require_read_only=True,
+                require_cap_drop_all=True,
+                require_no_new_privileges=True,
+            )
+
+        verify_hardened()
+        unsafe = (
+            ("Privileged", True, "privileged"),
+            ("PidMode", "host", "PID namespace"),
+            ("PublishAllPorts", True, "publish all"),
+            ("ReadonlyRootfs", False, "read-only"),
+            ("CapDrop", [], "drop all"),
+            ("CapAdd", ["NET_ADMIN"], "adds a capability"),
+            ("SecurityOpt", [], "no-new-privileges"),
+        )
+        for key, value, message in unsafe:
+            with self.subTest(key=key):
+                original = host[key]
+                host[key] = value
+                with self.assertRaisesRegex(VerificationError, message):
+                    verify_hardened()
+                host[key] = original
+
 
 class RunnerStaticTests(unittest.TestCase):
     def test_runner_has_no_target_or_command_input(self) -> None:
@@ -180,11 +297,13 @@ class RunnerStaticTests(unittest.TestCase):
         self.assertIn("cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini", text)
         self.assertRegex(text, r'python@sha256:[0-9a-f]{64}')
         self.assertIn("--user 65532:65532", text)
+        self.assertEqual(text.count("--require-no-new-privileges"), 3)
+        self.assertEqual(text.count("--require-read-only"), 2)
+        self.assertEqual(text.count("--require-cap-drop-all"), 2)
         self.assertNotIn('$(id -u)', text)
 
     def test_runner_pins_each_profile_file_hash(self) -> None:
         text = (ROOT / "run-local-docker-lab.sh").read_text(encoding="utf-8")
-        import hashlib
 
         for filename in PROFILE_NAMES.values():
             digest = hashlib.sha256((ROOT / "profiles" / filename).read_bytes()).hexdigest()
@@ -194,12 +313,14 @@ class RunnerStaticTests(unittest.TestCase):
         hash_pos = text.index('sha256sum -- "$scratch_dir/in/profile.json"')
         self.assertLess(copy_pos, hash_pos)
 
-    def test_php82_verified_profile_is_runner_allow_listed(self) -> None:
+    def test_php81_and_php82_verified_profiles_are_runner_allow_listed(self) -> None:
         names = "\n".join(path.name for path in (ROOT / "profiles").glob("*.json"))
-        self.assertNotRegex(names, r"php-(?:7\.2|8\.1)")
+        self.assertNotRegex(names, r"php-7\.2")
+        self.assertIn(PROFILE_NAMES["php-8.1.34-apache-amd64-trans-sid"], names)
         self.assertIn(PROFILE_NAMES["php-8.2.34-apache-amd64-pure-http-oom"], names)
         runner = (ROOT / "run-local-docker-lab.sh").read_text(encoding="utf-8")
         verified_block = runner.split("readonly -a VERIFIED_PROFILE_IDS=(", 1)[1].split(")", 1)[0]
+        self.assertIn("php-8.1.34-apache-amd64-trans-sid", verified_block)
         self.assertIn("php-8.2.34-apache-amd64-pure-http-oom", verified_block)
         support = (ROOT / "SUPPORT.md").read_text(encoding="utf-8")
         for version in ("PHP 7.2.34", "PHP 8.1.34", "PHP 8.2.34"):
@@ -209,11 +330,194 @@ class RunnerStaticTests(unittest.TestCase):
     def test_framework_documentation_matches_release_profiles_and_abi_name(self) -> None:
         framework = (ROOT / "FRAMEWORK.md").read_text(encoding="utf-8")
         self.assertNotIn("the one included runnable", framework)
-        self.assertIn("PHP 8.2.34, 8.3.35, 8.4.26, and 8.5.11", framework)
+        self.assertIn("PHP 8.1.34, 8.2.34, 8.3.35, 8.4.26, and 8.5.11", framework)
         self.assertIn("zend_execute_data.run_time_cache", framework)
         schema = json.loads((ROOT / "profile-v1.schema.json").read_text(encoding="utf-8"))
         description = schema["$defs"]["abi"]["properties"]["zend_execute_data"]["description"]
         self.assertIn("run_time_cache", description)
+
+
+class Php81HttpReleaseStaticTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.release_root = ROOT.parents[1]
+        self.profile_path = ROOT / "profiles" / PROFILE_NAMES[
+            "php-8.1.34-apache-amd64-trans-sid"
+        ]
+        self.profile = load_profile(self.profile_path)
+
+    def test_profile_pins_http_only_geometry_and_fixed_symbol(self) -> None:
+        require_verified(self.profile)
+        raw = self.profile.raw
+        self.assertEqual(raw["request_recipe"]["strategy"], "php81-trans-sid-v1")
+        self.assertEqual(raw["build"]["php"]["version"], "8.1.34")
+        self.assertEqual(
+            raw["build"]["image"]["repo_digest"],
+            "mirror.gcr.io/library/php@sha256:"
+            "72f0c0134922985022d55a39b0390d35dc7a10e961aa6c44fa35b4c3102f4268",
+        )
+        self.assertEqual(raw["symbols"]["zif_system"]["offset"], "0x36f470")
+        self.assertEqual(raw["request_recipe"]["b1"]["target_offset"], "0x1fa120")
+        self.assertEqual(raw["request_recipe"]["b1"]["fake_len"], "0x1c0000")
+        self.assertEqual(raw["request_recipe"]["b1"]["main_qword_offset"], "0x5ec8")
+        self.assertEqual(raw["request_recipe"]["a2"]["large_field"]["value_len"], 160 << 20)
+        self.assertEqual(raw["request_recipe"]["b2"]["reference_offset"], "0x74160")
+        self.assertEqual(raw["request_recipe"]["b2"]["fake_array_offset"], "0x74800")
+
+    def test_engine_has_no_out_of_band_address_source_or_command_control(self) -> None:
+        engine = (ROOT / "php81_trans_sid.py").read_text(encoding="utf-8")
+        self.assertIn('FIXED_COMMAND = b"id>/out/p"', engine)
+        self.assertIn("command != FIXED_COMMAND", engine)
+        self.assertIn("parse_b1", engine)
+        self.assertIn("zval_ptr_dtor fingerprint is not unique", engine)
+        for forbidden in ("/proc/", "os.environ", "subprocess", "gdb", "ptrace"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, engine.lower())
+
+    def test_runner_keeps_php81_target_internal_and_exact(self) -> None:
+        runner = (ROOT / "run-local-docker-lab.sh").read_text(encoding="utf-8")
+        self.assertIn('"php-8.1.34-apache-amd64-trans-sid"', runner)
+        self.assertIn('PHP_INI_FILE="php81-trans.ini"', runner)
+        self.assertIn('INDEX_FILE="index-trans-sid.php"', runner)
+        self.assertIn('src=$SCRIPT_DIR/lab/$INDEX_FILE,dst=/var/www/html/index.php', runner)
+        self.assertIn("network create --internal", runner)
+        self.assertNotRegex(runner, r"(?:^|\s)--publish(?:\s|=)")
+        self.assertNotIn("--cmd", runner)
+        self.assertIn("--proof-target /out/p", runner)
+        self.assertIn("/proc/[0-9]*/comm", runner)
+        self.assertNotIn("/proc/[0-9]*/maps", runner)
+        self.assertNotIn("/proc/[0-9]*/mem", runner)
+
+        index = (ROOT / "lab" / "index-trans-sid.php").read_text(encoding="utf-8")
+        self.assertIn('<a href="/next">LOCAL-LINK</a>', index)
+        self.assertNotIn("$_GET", index)
+        self.assertNotIn("$_POST", index)
+
+        runtime_probe = (ROOT / "lab" / "runtime.php").read_text(encoding="utf-8")
+        for setting in (
+            "session.use_trans_sid",
+            "session.use_cookies",
+            "session.use_only_cookies",
+            "session.upload_progress.cleanup",
+            "url_rewriter.tags",
+        ):
+            with self.subTest(runtime_setting=setting):
+                self.assertIn(setting, runtime_probe)
+
+        release_manifest = (
+            self.release_root / "evidence" / "multiversion" / "release-file-sha256.txt"
+        ).read_text(encoding="utf-8")
+        for path in (
+            "lab/index-trans-sid.php",
+            "lab/php81-trans.ini",
+            "php81_trans_sid.py",
+            "profiles/php-8.1.34-apache-amd64-trans-sid.json",
+        ):
+            with self.subTest(path=path):
+                self.assertIn(f"  {path}", release_manifest)
+
+    def test_public_evidence_records_three_final_system_runs(self) -> None:
+        evidence = (
+            self.release_root / "evidence" / "multiversion" / "php-8.1.34-proof.txt"
+        ).read_text(encoding="utf-8")
+        self.assertIn("process_memory_access=false", evidence)
+        self.assertIn("proof_command=id>/out/p", evidence)
+        self.assertIn("terminal_symbol=zif_system", evidence)
+        self.assertIn("terminal_offset=0x36f470", evidence)
+        self.assertIn(
+            "post_proof_worker=SIGSEGV (AH00052); no normal fourth-POST "
+            "access-log entry",
+            evidence,
+        )
+        self.assertIn(
+            "development_history=three earlier zif_passthru HTTP-only calibration "
+            "runs are excluded from this final proof set",
+            evidence,
+        )
+        self.assertIn(
+            "result=3/3 final zif_system fixed-command HTTP-only RCE proofs",
+            evidence,
+        )
+        observed = re.findall(
+            r"(?m)^run=([123])\n"
+            r"run_id=(\d{8}T\d{6}Z-\d+)\n"
+            r"fresh_aslr=true\n"
+            r"fresh_target=true\n"
+            r"a1_status=500\n"
+            r"b1_status=200\n"
+            r"b1_leak_length=0x1c0000\n"
+            r"a2_status=500\n"
+            r"a2_body_bytes=167775191\n"
+            r"main_chunk=(0x[0-9a-f]+)\n"
+            r"libphp_base=(0x[0-9a-f]+)$",
+            evidence,
+        )
+        self.assertEqual(
+            observed,
+            [
+                ("1", "20261023T163513Z-200322", "0x7b3636200000", "0x7b3637d91000"),
+                ("2", "20261023T163537Z-203897", "0x75d685400000", "0x75d687057000"),
+                ("3", "20261023T163602Z-207516", "0x7fa812400000", "0x7fa81402f000"),
+            ],
+        )
+        self.assertEqual(len(re.findall(r"(?m)^zval_ptr_dtor_hits=623$", evidence)), 3)
+        self.assertEqual(evidence.count("runtime_prerequisites_exact=true"), 3)
+        self.assertEqual(evidence.count("artifact_sha256_manifest=verified"), 3)
+        self.assertEqual(evidence.count("cleanup=verified"), 3)
+        self.assertEqual(
+            evidence.count(
+                "proof=uid=33(www-data) gid=33(www-data) groups=33(www-data)"
+            ),
+            3,
+        )
+
+    def test_release_manifest_covers_and_hashes_every_bundled_file(self) -> None:
+        manifest_path = (
+            self.release_root / "evidence" / "multiversion" / "release-file-sha256.txt"
+        )
+        entries: dict[str, str] = {}
+        for line in manifest_path.read_text(encoding="utf-8").splitlines():
+            match = re.fullmatch(r"([0-9a-f]{64})  (.+)", line)
+            self.assertIsNotNone(match, line)
+            assert match is not None
+            digest, name = match.groups()
+            self.assertNotIn(name, entries)
+            entries[name] = digest
+
+        files = {
+            path.relative_to(ROOT).as_posix(): path
+            for path in ROOT.rglob("*")
+            if path.is_file()
+            and not {"artifacts", ".work", "__pycache__"}.intersection(path.parts)
+            and path.suffix != ".pyc"
+        }
+        self.assertEqual(set(entries), set(files))
+        for name, path in files.items():
+            with self.subTest(path=name):
+                self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), entries[name])
+
+    def test_evidence_manifests_cover_and_hash_published_evidence(self) -> None:
+        evidence_root = self.release_root / "evidence"
+        for directory in (evidence_root / "multiversion", evidence_root):
+            manifest_path = directory / "SHA256SUMS.txt"
+            entries: dict[str, str] = {}
+            for line in manifest_path.read_text(encoding="utf-8").splitlines():
+                match = re.fullmatch(r"([0-9a-f]{64})  (.+)", line)
+                self.assertIsNotNone(match, line)
+                assert match is not None
+                digest, name = match.groups()
+                self.assertNotIn(name, entries)
+                entries[name] = digest
+
+            files = {
+                path.relative_to(directory).as_posix(): path
+                for path in directory.rglob("*")
+                if path.is_file() and path != manifest_path
+            }
+            with self.subTest(directory=directory.name):
+                self.assertEqual(set(entries), set(files))
+            for name, path in files.items():
+                with self.subTest(directory=directory.name, path=name):
+                    self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), entries[name])
 
 
 class LegacyScopeProbeStaticTests(unittest.TestCase):

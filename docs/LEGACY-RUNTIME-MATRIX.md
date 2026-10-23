@@ -59,7 +59,7 @@ tested HTTP inputs did not reclaim the 24-byte reference. No destructor or
 command proof occurred. See
 [`PHP-7.2-STALE-STATE.md`](PHP-7.2-STALE-STATE.md).
 
-## Why the standalone HTTP profile stops on legacy builds
+## Why Set-Cookie stops on legacy builds, and the PHP 8.1 exception
 
 The public PHP 8.3–8.5 chains and this repository's PHP 8.2 port obtain their
 first address disclosure by making stale Session ID storage reach
@@ -68,6 +68,15 @@ neither returned a usable disclosure. Their older `php_session_reset_id()`
 logic clears `PS(send_cookie)` unconditionally, while the newer path used by
 the public chain returns early on cookie-send failure and preserves it.
 Changing symbol offsets or filler counts cannot replace that missing consumer.
+
+PHP 8.1.34 was later ported with a different consumer. A FILE_START OOM leaves
+`PS(id)` before ordinary session initialization, and the next request exposes a
+profiled 1.75 MiB stale value through trans-SID URL rewriting. That response
+supplies the Zend MM main chunk and `libphp` base without process-memory
+access; a second OOM producer and reclaim request then create the fixed proof
+in 3/3 fresh runs. See
+[`PHP-8.1-HTTP-RCE-VALIDATION.md`](PHP-8.1-HTTP-RCE-VALIDATION.md). The PHP 7.2
+blockers below remain unresolved.
 
 The PHP 7.2 bounded investigation found a different pre-RINIT OOM producer and
 confirmed that the next request consumes stale session state. It still stops
@@ -79,9 +88,9 @@ used on PHP 7.3+ is therefore absent.
 
 Porting a standalone HTTP chain still crosses ABI families:
 
-- The locally calibrated PHP 8.0 raw-key lab and PHP 8.1 stale-session lab
-  prove their terminal primitives, but neither supplies addresses through a
-  pure-HTTP disclosure.
+- The locally calibrated PHP 8.0 raw-key lab and historical PHP 8.1 8 MiB
+  stale-session lab prove their terminal primitives but do not supply
+  addresses through HTTP. The separate PHP 8.1 128 MiB trans-SID profile does.
 - PHP 7 needs version-aware type flags, reference sizes, and HashTable
   semantics. The raw-key partial-`Bucket` geometry was validated on exact PHP
   7.3.33 and 7.4.33 images. PHP 7.2 has a confirmed stale-state primitive but
@@ -116,8 +125,8 @@ official PHP or Docker build.
 - **Official EOL source mitigations:** PHP 7.4, 8.0, and 8.1.
 - **Research-confirmed technical history:** version- and SAPI-dependent paths
   reach PHP 5.4.0.
-- **This repository's standalone HTTP RCE profiles:** four exact PHP 8.2–8.5
-  Apache images.
+- **This repository's standalone HTTP RCE profiles:** exact PHP 8.1.34,
+  8.2.34, 8.3.35, 8.4.26, and 8.5.11 Apache images.
 - **This repository's locally calibrated RCE labs:** exact PHP 7.3.33,
   7.4.33, 8.0.30, and 8.1.34 Apache images; addresses supplied from local
   `/proc`, with no remote ASLR-bypass claim.

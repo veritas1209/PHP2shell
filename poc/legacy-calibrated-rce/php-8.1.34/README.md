@@ -10,6 +10,16 @@ state가 PHP 8.1.34에서도 실제 destructor 제어와 명령 실행까지 이
 고정형 로컬 실험기입니다. 성공 시 target container에서 다음 고정 명령만
 실행합니다.
 
+> [!NOTE]
+> 이 8 MiB `/proc` 보정형 lab은 historical terminal-primitive 검증기로
+> 보존됩니다. 새 128 MiB HTTP-only profile
+> `php-8.1.34-apache-amd64-trans-sid`는 target process memory를 읽지 않고
+> trans-SID 응답에서 두 ASLR base를 복원해 3/3 fresh proof를 만들었습니다.
+> 새 end-to-end 재현은 [`../../multiversion`](../../multiversion/)을 사용하고,
+> 상세 비교는
+> [`../../../docs/PHP-8.1-HTTP-RCE-VALIDATION.md`](../../../docs/PHP-8.1-HTTP-RCE-VALIDATION.md)를
+> 참고하세요.
+
 ```text
 id>/out/p
 ```
@@ -40,9 +50,11 @@ terminal chain에 전달합니다.
 
 HTTP 요청 자체는 GDB나 ptrace 없이 실행되지만 주소 공급은 out-of-band 로컬
 관찰입니다. 따라서 이 결과는 PHP 8.1.34의 RCE primitive와 terminal chain을
-입증하며, 기본 설정에서의 원격 ASLR 우회를 입증하지 않습니다. PHP 8.1의
+입증하며, 이 8 MiB 경로 자체는 원격 ASLR 우회를 입증하지 않습니다. PHP 8.1의
 `php_session_reset_id()`는 PHP 8.4에서 사용한 Set-Cookie 누출과 다르게
-`PS(send_cookie)`를 정리하므로 그 disclosure chain을 그대로 쓸 수 없습니다.
+`PS(send_cookie)`를 정리하므로 그 disclosure chain을 그대로 쓸 수 없습니다. 새
+128 MiB profile은 Set-Cookie 경로를 재사용하지 않고 FILE_START OOM과 trans-SID를
+조합합니다.
 
 ## 실행
 

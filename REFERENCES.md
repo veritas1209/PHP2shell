@@ -28,11 +28,14 @@
 
 These research findings describe technical lineage and exploit paths. They are
 broader than the maintained PHP 8.2–8.5 branches enumerated by the PHP CNA and
-broader than this repository's four standalone HTTP profiles. This repository
+broader than this repository's five standalone HTTP profiles. This repository
 also contains locally `/proc`-calibrated terminal RCE labs for exact PHP
 7.3.33, 7.4.33, 8.0.30, and 8.1.34 builds, which are documented as a separate
 evidence class. See
 [`docs/AFFECTED-SCOPE.md`](docs/AFFECTED-SCOPE.md).
+The PHP 8.1.34 build also has a separate verified 128 MiB trans-SID profile
+that obtains its two ASLR bases from HTTP; the `/proc`-calibrated 8 MiB lab is
+retained as historical terminal-primitive evidence.
 
 ## Historical PHP 5.4 lab image
 
@@ -77,7 +80,7 @@ images. A PHP version string alone is not sufficient.
 | Locally calibrated proof | 7.3.33 | `sha256:b9872cd287ef72bc17d45d713aa2742f3d3bcf2503fea2506fd93aa94995219f` | `sha256:35da9118b3c0980fbaf84a4d410653642c9d55fb2f6c40011cc78de303837d64` |
 | Locally calibrated proof | 7.4.33 | `sha256:c9d7e608f73832673479770d66aacc8100011ec751d1905ff63fae3fe2e0ca6d` | `sha256:20a3732f422b7b28dcf99e8597f093a8c135efca62ff0dc02a2d92d916369413` |
 | Locally calibrated proof | 8.0.30 | `sha256:c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2` | `sha256:3357132d6ece3a509ce6f8abf6e7cf9886b343c504cb58428a7302cbe7abe446` |
-| Locally calibrated proof | 8.1.34 | `sha256:72f0c0134922985022d55a39b0390d35dc7a10e961aa6c44fa35b4c3102f4268` | `sha256:e6c924c6e862e6c74e01be964f88cb0c7ccbd673925e9a648cbbf77ff53b7ca1` |
+| Verified HTTP proof; historical locally calibrated proof | 8.1.34 | `sha256:72f0c0134922985022d55a39b0390d35dc7a10e961aa6c44fa35b4c3102f4268` | `sha256:e6c924c6e862e6c74e01be964f88cb0c7ccbd673925e9a648cbbf77ff53b7ca1` |
 | Verified proof | 8.2.34 | `sha256:1650dcb528360aad05d6ed2f83cb403a2a39c31bd14552efd9a747b2207dea86` | `sha256:f380b054d6364b80f0952a9198e5dc1e1ab4d809aad24d3f3174f059e863f48a` |
 | Fixed control | 8.2.35 | `sha256:fa8966fbaaa06981e549e7a33eb8a68f4cf677d6a82e1d6350adc5d85fe8f740` | `sha256:745174152c4e5ddc9854adea24a2c408129c27384010e29b31303e1b50e3caae` |
 | Verified proof | 8.3.35 | `sha256:c59c808172ee3672cd334f8f2a5d7b1480a9d7273a368f412b8ee9b4ef418184` | `sha256:90620e863c15e608cfebd058554d82d2c7fd816bdd690adc69027409cbb7a369` |
@@ -97,6 +100,7 @@ python@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
 
 | PHP | `libphp.so` SHA-256 | GNU build ID |
 |---|---|---|
+| 8.1.34 | `d92ab65c24d3f3d1528fffb716a35dccf2bfdd0e74618f8bc2e4d5376a04496b` | `3132517227bb2a7e9c6ec4dfa9dc9c3c382e25e1` |
 | 8.2.34 | `42ae9f69550e036ff5ad3d25d7ebf6b40bf2dd6531e8f891de53bea0d1663e9b` | `432b9cdfc44ab0205ee9f81d234d14e474e9aeb6` |
 | 8.3.35 | `ea069762fa225a2d61ebf613db5686d7c29823acf641424d596f78fcaa1cdccb` | `6750eb9dbdf140fb6f76592d078784272ec1c7ca` |
 | 8.4.26 | `51663cf883b1223436d4c99f31dd0225735ea5573665e4242621eee7f4ee679c` | `a534a5c4a890b378ef6c227590627d531eafa8ce` |

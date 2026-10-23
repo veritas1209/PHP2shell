@@ -10,7 +10,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from profile import ProfileError, load_json, load_profile, require_verified
+from profile import (
+    PHP81_TRANS_SID_RUNTIME_KEYS,
+    ProfileError,
+    load_json,
+    load_profile,
+    require_verified,
+)
 
 
 def verify(
@@ -38,9 +44,27 @@ def verify(
         raise ProfileError("runtime observation has missing or unknown top-level keys")
     if observed["php"] != dict(profile.raw["build"]["php"]):
         raise ProfileError("live PHP build fingerprint does not match the profile")
-    if observed["runtime"] != dict(profile.raw["runtime"]):
+    observed_runtime = observed["runtime"]
+    if not isinstance(observed_runtime, dict):
+        raise ProfileError("live runtime fingerprint must be an object")
+    expected_runtime = dict(profile.raw["runtime"])
+    missing = set(expected_runtime) - set(observed_runtime)
+    unknown = set(observed_runtime) - set(expected_runtime) - set(
+        PHP81_TRANS_SID_RUNTIME_KEYS
+    )
+    if missing or unknown:
+        raise ProfileError("live runtime settings have missing or unknown keys")
+    projected_runtime = {
+        key: observed_runtime[key]
+        for key in expected_runtime
+    }
+    if projected_runtime != expected_runtime:
         raise ProfileError("live runtime settings do not match the profile")
-    return observed["runtime"]
+    # runtime.php reports the newer session/rewrite observations for every
+    # strategy.  Older profiles intentionally omit those keys, so their
+    # manifest retains the exact legacy runtime shape while the full observed
+    # JSON artifact still records every live value.
+    return projected_runtime
 
 
 def main() -> int:

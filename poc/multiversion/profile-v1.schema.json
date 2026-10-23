@@ -26,6 +26,42 @@
     "request_recipe": {"$ref": "#/$defs/requestRecipe"},
     "provenance": {"$ref": "#/$defs/provenance"}
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "request_recipe": {
+            "type": "object",
+            "properties": {
+              "strategy": {"const": "php81-trans-sid-v1"}
+            },
+            "required": ["strategy"]
+          }
+        },
+        "required": ["request_recipe"]
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "required": [
+              "session_use_trans_sid", "session_use_cookies",
+              "session_use_only_cookies", "upload_progress_cleanup",
+              "url_rewriter_tags"
+            ],
+            "properties": {
+              "session_use_trans_sid": {"const": true},
+              "session_use_cookies": {"const": false},
+              "session_use_only_cookies": {"const": false},
+              "upload_progress_cleanup": {"const": true},
+              "url_rewriter_tags": {
+                "const": "a=href,area=href,frame=src,form="
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "hex": {
       "type": "string",
@@ -165,7 +201,12 @@
         "session_extension": {"const": true},
         "upload_progress_enabled": {"const": true},
         "session_name": {"type": "string", "minLength": 1},
-        "upload_progress_name": {"type": "string", "minLength": 1}
+        "upload_progress_name": {"type": "string", "minLength": 1},
+        "session_use_trans_sid": {"type": "boolean"},
+        "session_use_cookies": {"type": "boolean"},
+        "session_use_only_cookies": {"type": "boolean"},
+        "upload_progress_cleanup": {"type": "boolean"},
+        "url_rewriter_tags": {"type": "string", "minLength": 1}
       }
     },
     "pad": {
@@ -272,7 +313,8 @@
     "requestRecipe": {
       "oneOf": [
         {"$ref": "#/$defs/legacyRequestRecipe"},
-        {"$ref": "#/$defs/pureHttpOomRecipe"}
+        {"$ref": "#/$defs/pureHttpOomRecipe"},
+        {"$ref": "#/$defs/php81TransSidRecipe"}
       ]
     },
     "legacyRequestRecipe": {
@@ -426,6 +468,175 @@
         "b1": {"$ref": "#/$defs/pureB1"},
         "a2": {"$ref": "#/$defs/pureA2"},
         "b2": {"$ref": "#/$defs/pureB2"}
+      }
+    },
+    "php81PreFileScalar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "name_len", "value_len", "prefix", "fill"],
+      "properties": {
+        "count": {"type": "integer", "minimum": 1, "maximum": 64},
+        "name_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "value_len": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "prefix": {"type": "string", "pattern": "^[A-Za-z]$"},
+        "fill": {"type": "string", "pattern": "^[A-Za-z]$"}
+      }
+    },
+    "php81A1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_len", "nested_parts", "depth", "key_pad", "ctype_lengths",
+        "small_fillers", "large_fields", "burners", "pad", "progress_len",
+        "pre_file_scalars", "pre_file_mix", "file"
+      ],
+      "properties": {
+        "boundary_len": {"type": "integer", "minimum": 8, "maximum": 128},
+        "nested_parts": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "depth": {"type": "integer", "minimum": 2, "maximum": 64},
+        "key_pad": {"type": "integer", "minimum": 0, "maximum": 512},
+        "ctype_lengths": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": {"type": "integer", "minimum": 1, "maximum": 4096}
+        },
+        "small_fillers": {"$ref": "#/$defs/countedShape"},
+        "large_fields": {
+          "type": "object", "additionalProperties": false,
+          "required": ["count", "value_len"],
+          "properties": {
+            "count": {"type": "integer", "minimum": 1, "maximum": 512},
+            "value_len": {"type": "integer", "minimum": 1, "maximum": 65536}
+          }
+        },
+        "burners": {"$ref": "#/$defs/countedValues"},
+        "pad": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name_len", "value_len"],
+          "properties": {
+            "name_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+            "value_len": {"type": "integer", "minimum": 1, "maximum": 65536}
+          }
+        },
+        "progress_len": {"type": "integer", "minimum": 1, "maximum": 65536},
+        "pre_file_scalars": {
+          "type": "array", "minItems": 1, "maxItems": 8,
+          "items": {"$ref": "#/$defs/php81PreFileScalar"}
+        },
+        "pre_file_mix": {
+          "type": "array", "minItems": 1, "maxItems": 16,
+          "items": {"type": "integer", "minimum": 0, "maximum": 65536}
+        },
+        "file": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name_len", "filename_len", "content_type_len", "value_len"],
+          "properties": {
+            "name_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+            "filename_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+            "content_type_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+            "value_len": {"type": "integer", "minimum": 0, "maximum": 4096}
+          }
+        }
+      }
+    },
+    "php81B1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_len", "target_offset", "fake_len", "allocator_overhead",
+        "value_data_offset", "name_len", "head_forged_fields", "forged_pages",
+        "partial_flood_pages", "tail_forged_fields", "hit_index", "nested_fillers",
+        "expected_prefix", "main_qword_offset", "min_dtor_hits",
+        "libphp_delta_min", "libphp_delta_max"
+      ],
+      "properties": {
+        "boundary_len": {"type": "integer", "minimum": 8, "maximum": 128},
+        "target_offset": {"$ref": "#/$defs/hex"},
+        "fake_len": {"$ref": "#/$defs/hex"},
+        "allocator_overhead": {"type": "integer", "minimum": 1, "maximum": 1024},
+        "value_data_offset": {"type": "integer", "minimum": 24, "maximum": 2097152},
+        "name_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "head_forged_fields": {"type": "integer", "minimum": 1, "maximum": 64},
+        "forged_pages": {"type": "integer", "minimum": 1, "maximum": 512},
+        "partial_flood_pages": {"type": "integer", "minimum": 1, "maximum": 512},
+        "tail_forged_fields": {"type": "integer", "minimum": 1, "maximum": 64},
+        "hit_index": {"type": "integer", "minimum": 0, "maximum": 129},
+        "nested_fillers": {"type": "integer", "minimum": 0, "maximum": 4096},
+        "expected_prefix": {"type": "string", "pattern": "^/[0-9]{2}B{5}$"},
+        "main_qword_offset": {"$ref": "#/$defs/hex"},
+        "min_dtor_hits": {"type": "integer", "minimum": 2, "maximum": 4096},
+        "libphp_delta_min": {"$ref": "#/$defs/hex"},
+        "libphp_delta_max": {"$ref": "#/$defs/hex"}
+      }
+    },
+    "php81A2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_len", "session_value_len", "progress_value", "fillers", "file", "large_field"
+      ],
+      "properties": {
+        "boundary_len": {"type": "integer", "minimum": 8, "maximum": 128},
+        "session_value_len": {"type": "integer", "minimum": 1, "maximum": 128},
+        "progress_value": {"type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$"},
+        "fillers": {
+          "type": "object", "additionalProperties": false,
+          "required": ["count", "name_len", "value_len"],
+          "properties": {
+            "count": {"type": "integer", "minimum": 0, "maximum": 4096},
+            "name_len": {"type": "integer", "minimum": 1, "maximum": 128},
+            "value_len": {"type": "integer", "minimum": 0, "maximum": 4096}
+          }
+        },
+        "file": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "filename", "value_len"],
+          "properties": {
+            "name": {"type": "string", "pattern": "^[A-Za-z0-9_.-]{1,128}$"},
+            "filename": {"type": "string", "pattern": "^[A-Za-z0-9_.-]{1,255}$"},
+            "value_len": {"type": "integer", "minimum": 0, "maximum": 65536}
+          }
+        },
+        "large_field": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "value_len", "stream_chunk"],
+          "properties": {
+            "name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"},
+            "value_len": {"type": "integer", "minimum": 134217728, "maximum": 201326592},
+            "stream_chunk": {"type": "integer", "minimum": 4096, "maximum": 1048576}
+          }
+        }
+      }
+    },
+    "php81B2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_len", "session_value", "progress_value", "spray_count", "name_len",
+        "value_len", "reference_offset", "fake_array_offset", "refcount"
+      ],
+      "properties": {
+        "boundary_len": {"type": "integer", "minimum": 8, "maximum": 128},
+        "session_value": {"type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$"},
+        "progress_value": {"type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$"},
+        "spray_count": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "name_len": {"type": "integer", "minimum": 1, "maximum": 128},
+        "value_len": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "reference_offset": {"$ref": "#/$defs/hex"},
+        "fake_array_offset": {"$ref": "#/$defs/hex"},
+        "refcount": {"type": "integer", "minimum": 1, "maximum": 2}
+      }
+    },
+    "php81TransSidRecipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "query_fields", "a1", "b1", "a2", "b2"],
+      "properties": {
+        "strategy": {"const": "php81-trans-sid-v1"},
+        "query_fields": {"type": "integer", "minimum": 0, "maximum": 32},
+        "a1": {"$ref": "#/$defs/php81A1"},
+        "b1": {"$ref": "#/$defs/php81B1"},
+        "a2": {"$ref": "#/$defs/php81A2"},
+        "b2": {"$ref": "#/$defs/php81B2"}
       }
     },
     "provenance": {

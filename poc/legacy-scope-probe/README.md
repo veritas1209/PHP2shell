@@ -45,4 +45,4 @@ SHA-256 manifest.
 It does not establish OOM corruption, cross-request stale state, information
 disclosure, ASLR bypass, or code execution. The full RCE runner remains under
 [`../multiversion`](../multiversion/) and currently has verified profiles only
-for exact PHP 8.2.34, 8.3.35, 8.4.26, and 8.5.11 images.
+for exact PHP 8.1.34, 8.2.34, 8.3.35, 8.4.26, and 8.5.11 images.

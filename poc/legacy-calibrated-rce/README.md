@@ -8,6 +8,14 @@
 이 디렉터리는 PHP 8.2 이전 exact build에서도 PHP2Shell 계열의 stale-state/OOM
 primitive가 실제 명령 실행까지 이어지는지를 분리해 검증합니다.
 
+> [!NOTE]
+> PHP 8.1.34에는 이제 128 MiB runtime에서 heap과 `libphp` base를 trans-SID HTTP
+> 응답으로 복원하는 verified multi-version profile이 있습니다. 이 디렉터리의
+> 8 MiB PHP 8.1 lab은 먼저 terminal primitive를 확인한 historical 보정형 경로로
+> 보존합니다. 새 end-to-end 재현에는
+> [`../multiversion`](../multiversion/)의
+> `php-8.1.34-apache-amd64-trans-sid` profile을 사용하세요.
+
 | Exact build | 검증 경로 | fresh 결과 | 주소 공급 | 실행기 |
 |---|---|---:|---|---|
 | PHP 7.3.33 Apache | raw-key partial `Bucket` → fake `HashTable` → libc `system()` | 3/3 fresh 개발 재현 | 로컬 `/proc`에서 `arData`와 libc base 보정 | [`raw-key-partial-bucket/`](raw-key-partial-bucket/) |
@@ -19,8 +27,9 @@ primitive가 실제 명령 실행까지 이어지는지를 분리해 검증합�
 하지만 raw-key shared runner와 PHP 8.1 runner 두 하위 runner는 ASLR 주소를
 HTTP 응답에서 얻지 않습니다. Docker host의 로컬
 `/proc/<worker>/maps`와 `/proc/<worker>/mem`을 읽으므로, 이는 **terminal RCE
-primitive 검증기**이며 standalone remote exploit 또는 HTTP-only ASLR bypass가
-아닙니다.
+primitive 검증기**이며 그 실행 자체는 standalone remote exploit 또는 HTTP-only
+ASLR bypass가 아닙니다. PHP 8.1의 별도 multi-version profile은 이 한계를 해소한
+독립 경로입니다.
 
 각 runner는 인자를 받지 않고 다음 경계를 고정합니다.
 

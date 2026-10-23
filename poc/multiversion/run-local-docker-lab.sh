@@ -9,6 +9,7 @@ fi
 
 readonly ATTACKER_IMAGE="python@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704"
 readonly -a VERIFIED_PROFILE_IDS=(
+    "php-8.1.34-apache-amd64-trans-sid"
     "php-8.2.34-apache-amd64-pure-http-oom"
     "php-8.3.35-apache-amd64-r0-spray"
     "php-8.4.26-apache-amd64-fixed-carrier"
@@ -90,7 +91,7 @@ case "$PROFILE_SELECTION" in
     all)
         SELECTED_PROFILE_IDS=("${VERIFIED_PROFILE_IDS[@]}")
         ;;
-    php-8.2.34-apache-amd64-pure-http-oom|php-8.3.35-apache-amd64-r0-spray|php-8.4.26-apache-amd64-fixed-carrier|php-8.5.11-apache-amd64-r0-spray)
+    php-8.1.34-apache-amd64-trans-sid|php-8.2.34-apache-amd64-pure-http-oom|php-8.3.35-apache-amd64-r0-spray|php-8.4.26-apache-amd64-fixed-carrier|php-8.5.11-apache-amd64-r0-spray)
         SELECTED_PROFILE_IDS=("$PROFILE_SELECTION")
         ;;
     *)
@@ -128,12 +129,22 @@ readonly ATTACKER_IMAGE_ID
 
 profile_spec() {
     case "$1" in
+        php-8.1.34-apache-amd64-trans-sid)
+            PROFILE_FILE="php-8.1.34-apache-amd64-trans-sid.json"
+            PROFILE_SHA256="bb52e592c1bdc81b32413604f804ccdefcc4f255ca8132a2355c66dc51c5564c"
+            TARGET_IMAGE="mirror.gcr.io/library/php@sha256:72f0c0134922985022d55a39b0390d35dc7a10e961aa6c44fa35b4c3102f4268"
+            TARGET_IMAGE_ID="sha256:e6c924c6e862e6c74e01be964f88cb0c7ccbd673925e9a648cbbf77ff53b7ca1"
+            PHP_INI_FILE="php81-trans.ini"
+            INDEX_FILE="index-trans-sid.php"
+            PRODUCTION_INI=0
+            ;;
         php-8.3.35-apache-amd64-r0-spray)
             PROFILE_FILE="php-8.3.35-apache-amd64-r0-spray.json"
             PROFILE_SHA256="98047f64453c5fbcf88ce57fc42494d13083ab206a21357db8a438240c9d04cf"
             TARGET_IMAGE="php@sha256:c59c808172ee3672cd334f8f2a5d7b1480a9d7273a368f412b8ee9b4ef418184"
             TARGET_IMAGE_ID="sha256:90620e863c15e608cfebd058554d82d2c7fd816bdd690adc69027409cbb7a369"
             PHP_INI_FILE="php.ini"
+            INDEX_FILE="index.php"
             PRODUCTION_INI=0
             ;;
         php-8.4.26-apache-amd64-fixed-carrier)
@@ -142,6 +153,7 @@ profile_spec() {
             TARGET_IMAGE="php@sha256:60111400ff77bdc44fa79b4f072afe49a42abba71e0846ad496be4761dc9c11a"
             TARGET_IMAGE_ID="sha256:46b195b6378e712d1a65cd3f853242bebd7f3cb4cafe137fd592b365909d2c17"
             PHP_INI_FILE="php.ini"
+            INDEX_FILE="index.php"
             PRODUCTION_INI=0
             ;;
         php-8.5.11-apache-amd64-r0-spray)
@@ -150,6 +162,7 @@ profile_spec() {
             TARGET_IMAGE="php@sha256:47e6d8849049375e0d19e81f1b391ed88828d4653e0d1b00822185b66b564e8b"
             TARGET_IMAGE_ID="sha256:b384c1b31d2008af2160a735bb856317926f893553293f526024019a31d0fd6b"
             PHP_INI_FILE="php.ini"
+            INDEX_FILE="index.php"
             PRODUCTION_INI=0
             ;;
         php-8.2.34-apache-amd64-pure-http-oom)
@@ -159,6 +172,7 @@ profile_spec() {
             TARGET_IMAGE_ID="sha256:f380b054d6364b80f0952a9198e5dc1e1ab4d809aad24d3f3174f059e863f48a"
             # The measured target uses the image's stock php.ini-production.
             PHP_INI_FILE=""
+            INDEX_FILE="index.php"
             PRODUCTION_INI=1
             ;;
         *)
@@ -166,7 +180,7 @@ profile_spec() {
             return 1
             ;;
     esac
-    readonly PROFILE_FILE PROFILE_SHA256 TARGET_IMAGE TARGET_IMAGE_ID PHP_INI_FILE PRODUCTION_INI
+    readonly PROFILE_FILE PROFILE_SHA256 TARGET_IMAGE TARGET_IMAGE_ID PHP_INI_FILE INDEX_FILE PRODUCTION_INI
 }
 
 run_profile() (
@@ -258,7 +272,7 @@ run_profile() (
         --tmpfs /tmp:rw,nosuid,nodev,size=128m \
         "${php_ini_mount[@]}" \
         --mount "type=bind,src=$SCRIPT_DIR/lab/apache.conf,dst=/etc/apache2/conf-enabled/zz-php2shell.conf,readonly" \
-        --mount "type=bind,src=$SCRIPT_DIR/lab/index.php,dst=/var/www/html/index.php,readonly" \
+        --mount "type=bind,src=$SCRIPT_DIR/lab/$INDEX_FILE,dst=/var/www/html/index.php,readonly" \
         --mount "type=bind,src=$SCRIPT_DIR/lab/runtime.php,dst=/var/www/html/runtime.php,readonly" \
         --mount "type=volume,src=$volume_name,dst=/out" \
         "$TARGET_IMAGE" \
@@ -294,7 +308,10 @@ run_profile() (
             --image-id "$ATTACKER_IMAGE_ID" \
             --image-reference "$ATTACKER_IMAGE" \
             --network "$network_name" \
-            --expected-user 65532:65532
+            --expected-user 65532:65532 \
+            --require-read-only \
+            --require-cap-drop-all \
+            --require-no-new-privileges
         set +e
         "$DOCKER_BIN" start --attach "$helper_name" >"$log_path" 2>&1
         local rc=$?
@@ -325,6 +342,7 @@ run_profile() (
         --volume-name "$volume_name" \
         --volume-destination /out \
         --volume-mode rw \
+        --require-no-new-privileges \
         --print-addresses >"$scratch_dir/out/target-addresses.txt"
     mapfile -t target_addresses <"$scratch_dir/out/target-addresses.txt"
     if (( ${#target_addresses[@]} == 0 )); then
@@ -412,7 +430,10 @@ run_profile() (
         --expected-user 65532:65532 \
         --volume-name "$volume_name" \
         --volume-destination /proof \
-        --volume-mode ro
+        --volume-mode ro \
+        --require-read-only \
+        --require-cap-drop-all \
+        --require-no-new-privileges
 
     set +e
     "$DOCKER_BIN" start --attach "$attacker_name" >"$artifact_dir/exploit.log" 2>&1

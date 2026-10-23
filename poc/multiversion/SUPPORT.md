@@ -14,14 +14,14 @@ official php-src backport branch. See
 
 | Branch/build | Status in this harness | Evidence-based reason |
 |---|---|---|
+| PHP 8.1.34 Apache | Verified and runnable | Three fresh HTTP-only proofs; FILE_START/trans-SID leak recovered main chunk and `libphp`, then stale reference `+0x74160` reached fixed `zif_system` proof without target process-memory access |
 | PHP 8.2.34 Apache | Verified and runnable | Five fresh tail-variant pure-HTTP/OOM proofs, including one independent run; exact stock 128M/display-errors-Off runtime |
 | PHP 8.3.35 Apache | Verified and runnable | Two independent ptrace-free proofs; adaptive leak and r0 `0x74180` |
 | PHP 8.4.26 Apache | Verified and runnable | Four documented proofs; fixed carrier `0x690d8` |
 | PHP 8.5.11 Apache | Verified and runnable | Two independent ptrace-free proofs; r0 `0x73180`, one 19-byte pre-session field, 127 large values |
-| PHP 8.1.34 Apache | Unsupported in this framework; separate locally calibrated RCE lab | The adaptive disclosure returned no raw leak and the older session-cookie lifecycle clears that state. The separate lab reaches `zif_passthru` after local `/proc` supplies libphp and heap bases. |
 | PHP 7.2.34 Apache | Unsupported; bounded stale-state result, no RCE profile | On exact image `php@sha256:4dc0f0115acf8c2f0df69295ae822e49f5ad5fe849725847f15aa0e5802b55f8`, pre-RINIT OOM left a stale `zend_reference` at chunk `+0x6a018` in 8/8 fresh containers. Refcount 2 only fell to 1, tested inputs did not reclaim the 24-byte object, and no destructor or proof occurred. |
 
-The unsupported rows mean only that this exact PoC recipe is not ported. They
+The unsupported PHP 7.2 row means only that this exact PoC recipe is not ported. It
 must not be interpreted as “not vulnerable” or as contradicting the published
 5.4+ research range. A safe port would need the path appropriate to that PHP
 version/SAPI, a locally validated address-disclosure primitive, and a new
@@ -33,9 +33,12 @@ allocates a key before incrementing `nNumUsed`, so the PHP 7.3+ raw-key
 partial-`Bucket` producer is not portable to this build.
 
 The [legacy calibrated labs](../legacy-calibrated-rce/) deliberately use a
-different support class. PHP 7.3.33, 7.4.33, 8.0.30, and 8.1.34 have repeated
-terminal UID proofs there, but a local root reads process memory to supply ASLR addresses.
-They therefore do not qualify for this harness's standalone HTTP allow-list.
+different support class. PHP 7.3.33, 7.4.33, 8.0.30, and the historical 8 MiB
+PHP 8.1.34 path have repeated terminal UID proofs there, but a local root reads
+process memory to supply ASLR addresses. Those lab results do not qualify on
+their own for this harness's standalone HTTP allow-list. PHP 8.1.34 now
+qualifies through the separate 128 MiB trans-SID profile and its 3/3 HTTP-only
+proofs; see the [validation report](../../docs/PHP-8.1-HTTP-RCE-VALIDATION.md).
 
 The separate [legacy scope probe](../legacy-scope-probe/) confirmed the
 default-enabled pre-script upload-progress surface on one exact Apache build
@@ -47,6 +50,11 @@ runnable RCE profiles and are deliberately excluded from this allow-list.
 
 The corresponding request recipes were also run locally against exact fixed
 images. These controls are evidence records, not runnable exploit profiles:
+
+PHP 8.1 received an EOL source mitigation rather than a new official point
+release image. This repository does not claim a bundled patched-image control
+for that profile; the official mitigation is linked in the version-scope and
+PHP 8.1 validation documents.
 
 | Fixed build | Image digest | Observed result |
 |---|---|---|

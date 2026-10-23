@@ -12,23 +12,24 @@
 ## Recommended: exact-profile multi-version runner
 
 [`multiversion/run-local-docker-lab.sh`](multiversion/run-local-docker-lab.sh)는
-다음 네 exact official PHP Apache `linux/amd64` build만 실행합니다.
+다음 다섯 exact official PHP Apache `linux/amd64` build만 실행합니다.
 
 | Profile ID | 검증 결과 |
 |---|---|
+| `php-8.1.34-apache-amd64-trans-sid` | 3/3 fresh HTTP-only proof; heap/libphp base를 trans-SID 응답에서 복원 |
 | `php-8.2.34-apache-amd64-pure-http-oom` | 5/5 fresh proof; PHP 8.2.35 fixed control 3/3 blocked |
 | `php-8.3.35-apache-amd64-r0-spray` | 2/2 ptrace-free proof |
 | `php-8.4.26-apache-amd64-fixed-carrier` | 4/4 documented proof |
 | `php-8.5.11-apache-amd64-r0-spray` | 2/2 ptrace-free proof |
 
-이 네 profile은 runner의 exact-build **지원 범위**입니다. 취약점 전체 범위와
+이 다섯 profile은 runner의 exact-build **지원 범위**입니다. 취약점 전체 범위와
 같지 않습니다. PHP CNA의 공식 stable matrix는 8.2–8.5이고, PHP 프로젝트는
 EOL인 7.4/8.0/8.1에 최소 소스 완화를 제공했습니다. Calif/Wiz 연구진은
 버전·SAPI별 경로를 구분해 PHP 5.4.0까지 기술적 영향을 확인했다고 보고합니다.
 PHP 5.4–7.3에는 CNA 열거도 공식 php-src backport도 없습니다. 자세한 구분은
 [`../docs/AFFECTED-SCOPE.md`](../docs/AFFECTED-SCOPE.md)를 참고하세요.
 
-기본 실행은 네 profile을 모두 순서대로 검사합니다. script는 command-line 인자를
+기본 실행은 다섯 profile을 모두 순서대로 검사합니다. script는 command-line 인자를
 받지 않습니다.
 
 ```bash
@@ -42,7 +43,7 @@ WSL Ubuntu에서 snap Docker를 사용해도 script가 `/snap/bin/docker`를 자
 한 profile만 실행하려면 bundled allow-list에서 ID를 고를 수 있습니다.
 
 ```bash
-PHP2SHELL_PROFILE_ID=php-8.3.35-apache-amd64-r0-spray \
+PHP2SHELL_PROFILE_ID=php-8.1.34-apache-amd64-trans-sid \
   ./poc/multiversion/run-local-docker-lab.sh
 ```
 
@@ -60,10 +61,17 @@ PHP2SHELL_PROFILE_ID=php-8.3.35-apache-amd64-r0-spray \
    container, network, volume과 임시 `libphp.so`를 제거합니다.
 
 수정판 PHP 8.2.35, 8.3.36, 8.4.27, 8.5.12 대조 실험에서는 같은 체인이
-disclosure 단계에서 실패했고 proof가 생성되지 않았습니다. PHP 8.1.34와
-7.2.34에는 이 **standalone HTTP framework**의 실행 profile이 없습니다. PHP
-7.3.33, 7.4.33, 8.0.30, 8.1.34의 별도 로컬 보정형 terminal RCE lab은 아래에
-있습니다. PHP 7.2.34에서는 pre-RINIT OOM 뒤 request 간 stale
+disclosure 단계에서 실패했고 proof가 생성되지 않았습니다. PHP 8.1.34는
+Set-Cookie 대신 FILE_START OOM과 trans-SID를 조합한 별도 verified profile로
+실행됩니다. 이 profile은 target의 `/proc/<pid>/maps`나 `/proc/<pid>/mem`, GDB 또는
+ptrace 없이 HTTP 응답에서 Zend MM main chunk와 `libphp` base를 복원해 3/3 fresh
+proof를 만들었습니다. 공통 runner는 single-worker 조건 확인에만
+`/proc/*/comm`을 읽습니다. 자세한 검증은
+[`../docs/PHP-8.1-HTTP-RCE-VALIDATION.md`](../docs/PHP-8.1-HTTP-RCE-VALIDATION.md)에
+있습니다.
+
+PHP 7.3.33, 7.4.33, 8.0.30과 PHP 8.1.34의 historical 로컬 보정형 terminal RCE
+lab은 아래에 있습니다. PHP 7.2.34에서는 pre-RINIT OOM 뒤 request 간 stale
 `zend_reference`를 8/8 fresh 실행에서 확인했지만, refcount와 24-byte reclaim
 조건을 넘지 못해 destructor와 proof가 발생하지 않았습니다. PHP 5.4–7.1은 benign
 선행 표면만 확인했으며, PHP 5.4–7.2의 end-to-end RCE는 아직 검증되지 않았습니다.
@@ -93,12 +101,13 @@ no-argument runner입니다.
 sudo ./poc/legacy-calibrated-rce/run-local-docker-lab.sh
 ```
 
-이 runner는 target/command를 고정하고 새 internal network만 사용하지만, 주소는
+이 historical runner는 target/command를 고정하고 새 internal network만 사용하지만, 주소는
 HTTP로 누출하지 않습니다. 로컬 root의 `/proc/<worker>/maps`와
 `/proc/<worker>/mem`으로 ASLR 값을 보정합니다. 따라서 구버전 RCE primitive의
-검증기이며 standalone remote exploit가 아닙니다. 특히 PHP 8.1에서는 독립적인
-pure-HTTP ASLR leak을 확인하지 못했습니다. PHP 7.3은 공식 EOL 완화가 제공된
-7.4/8.0/8.1과 달리 upstream backport가 없습니다. 자세한 구현과 한계는
+검증기이며 standalone remote exploit가 아닙니다. PHP 8.1 행은 새 trans-SID
+profile보다 먼저 8 MiB runtime에서 terminal primitive를 확인한 개발 이력으로
+보존합니다. PHP 7.3은 공식 EOL 완화가 제공된 7.4/8.0/8.1과 달리 upstream
+backport가 없습니다. 자세한 구현과 한계는
 [`legacy-calibrated-rce/README.md`](legacy-calibrated-rce/README.md)에 있습니다.
 
 ## PHP 5.4–8.1 benign scope probe

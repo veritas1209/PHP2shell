@@ -1,22 +1,23 @@
 # PHP2Shell PoC 멀티버전 및 공식 패치 차등 검증 보고서
 
-작성일: 2026-10-23 (Asia/Seoul)
+작성일: 2026-10-24 (Asia/Seoul)
 
 > 이 문서는 공개된 보안 권고와 수정 릴리스에 대한 사후 보안 연구 기록이다.
 > 본인이 소유하거나 명시적으로 허가받은 격리 환경에서만 재현해야 한다.
 
 이 문서는 초기 PHP 8.4.26/8.4.27의 공식 회귀 테스트와 full-chain A/B 분석을
-보존하면서, 그 뒤에 수행한 PHP 8.2.34, 8.3.35 및 8.5.11 exact-build 포팅 결과를 함께
-정리한다. 멀티버전 PoC는 버전 문자열만으로 실행하지 않고 image digest,
+보존하면서, 그 뒤에 수행한 PHP 8.1.34, 8.2.34, 8.3.35 및 8.5.11 exact-build 포팅
+결과를 함께 정리한다. 멀티버전 PoC는 버전 문자열만으로 실행하지 않고 image digest,
 `libphp` identity, runtime과 heap calibration을 모두 검증한다.
 
 ## 종합 결론
 
-후속 포팅에서 다음 네 exact official PHP Apache `linux/amd64` build에 대해
-ptrace 없는 fresh-container 실행으로 `zif_system("id>/out/p")` proof를 확인했다.
+후속 포팅에서 다음 다섯 exact official PHP Apache `linux/amd64` build에 대해
+ptrace 없는 격리 Docker 실행으로 고정 `id>/out/p` proof를 확인했다.
 
 | 취약 빌드 | full-chain 결과 | 수정 빌드 대조군 | 같은 재현 절차의 결과 |
 |---|---|---|---|
+| PHP 8.1.34 | trans-SID HTTP-only chain 3/3 fresh 실행 성공 | EOL 최소 source mitigation | 별도 patched-image 대조군 미게시 |
 | PHP 8.2.34 | tail variant 5/5 fresh 실행 성공 | PHP 8.2.35 | 3/3 B1 heap pointer 없음, `PROOF_ABSENT` |
 | PHP 8.3.35 | 2/2 독립 실행 성공 | PHP 8.3.36 | disclosure 실패, `NO_PROOF` |
 | PHP 8.4.26 | 4/4 기록된 실행 성공 | PHP 8.4.27 | stage-1 leak 실패, proof 없음 |
@@ -24,15 +25,22 @@ ptrace 없는 fresh-container 실행으로 `zif_system("id>/out/p")` proof를 �
 
 성공한 모든 proof는
 `uid=33(www-data) gid=33(www-data) groups=33(www-data)`였다. 이 결과는 PHP
-8.2, 8.3, 8.4, 8.5 계열 전체를 일반적으로 지원한다는 뜻이 아니다. 검증한 image와
-runtime이 정확히 일치하는 네 build만 runnable profile로 제공한다.
+8.1, 8.2, 8.3, 8.4, 8.5 계열 전체를 일반적으로 지원한다는 뜻이 아니다. 검증한
+image와 runtime이 정확히 일치하는 다섯 build만 runnable profile로 제공한다.
 
 PHP 8.2.34는 기존 8M/`display_errors=On` recipe 대신 stock
 `php.ini-production`의 128M/`display_errors=Off` 환경에 맞춘
-`pure-http-oom-v1` A1/B1/A2/B2 chain을 사용한다. 이 standalone HTTP framework에는
-PHP 8.1.34와 7.2.34 profile이 없다. 그러나 별도 실험에서 PHP 7.3.33, 7.4.33,
-8.0.30과 8.1.34의 terminal RCE primitive를 확인했다. 네 구버전 lab은 주소를
-로컬 `/proc`에서 보정하므로 standalone remote ASLR bypass와 구분한다.
+`pure-http-oom-v1` A1/B1/A2/B2 chain을 사용한다. PHP 8.1.34는 128 MiB runtime에서
+FILE_START OOM과 trans-SID를 이용하는 별도 `php81-trans-sid-v1` chain을 사용한다.
+B1 HTTP 응답에서 Zend MM main chunk와 `libphp` base를 얻고, 3/3 fresh 실행에서
+`zif_system("id>/out/p")` proof를 만들었다. PHP 7.2.34 profile은 없다. 별도
+실험에서 PHP 7.3.33, 7.4.33, 8.0.30과 PHP 8.1.34의 historical 8 MiB terminal RCE
+primitive도 확인했다. 네 legacy lab은 주소를 로컬 `/proc`에서 보정하므로 새 PHP
+8.1 HTTP-only profile과 구분한다.
+
+PHP 8.1의 이 3/3은 강화된 최종 allow-listed runner가 `zif_system`으로 만든
+proof만 센다. 같은 128 MiB geometry를 조정하던 초기 HTTP-only 개발 실행 3회는
+`zif_passthru`를 사용했으며 최종 proof 수와 공개 주소 집합에서 제외했다.
 
 권장 재현 경로는 `poc/multiversion/run-local-docker-lab.sh`다. 이 runner는 외부
 target이나 임의 명령을 받지 않고, allow-list된 exact profile과 digest-pinned
@@ -187,6 +195,7 @@ leak sequence와 packed `r0` spray를 profile-driven framework에 맞게 일부
 
 | Profile | stage 2 | stage 3 calibration | 관찰 결과 |
 |---|---|---|---|
+| PHP 8.1.34 | FILE_START/trans-SID B1, stale SID raw offset `0x1fa120`, disclosure `0x1c0000` | streamed 160 MiB A2, fake reference `main+0x74160`, fake `HashTable` `main+0x74800` | 3/3 fresh HTTP-only proof |
 | PHP 8.2.34 | pure-HTTP B1, stale SID raw offset `0xe2968`, disclosure `0xc8000` | fake array `main+0xf9398`, A2 880/64/115, B2 384/500/495 | 5/5 fresh proof |
 | PHP 8.3.35 | adaptive `0x20000` window, 150 arrays | `r0=chunk+0x74180`, 400 spray fields | 2/2 direct proof |
 | PHP 8.4.26 | fixed-array leak | fixed carrier `HTDATA=chunk+0x690d8` | 4/4 documented proof |
@@ -227,15 +236,26 @@ SHA-256 `643be7a49073fc4af53a2d87aec3ec4b7f67fade1f0d458d00c6f88675326178`로 �
 운영 환경의 안전 판정은 PoC 결과가 아니라 official advisory와 vendor backport
 상태를 기준으로 해야 한다.
 
-### standalone HTTP PoC의 PHP 8.1/7.2 포팅 경계
+### standalone HTTP PoC의 PHP 8.1 포팅과 PHP 7.2 경계
 
-PHP 8.1.34/7.2.34의 source 및 runtime probe에서는 공개 체인이 기대하는 cookie
-disclosure가 나오지 않았다. 이들 branch는 intentionally non-runnable로
-standalone framework에 문서화했으며, 취약성 부정이나 별도 exploit chain의
-불가능성을 뜻하지 않는다.
-특히 PHP 8.1에는 공식 최소 완화가 존재하고, 연구진은 PHP 7.2를 포함하는 5.4+
-계보에서 버전·SAPI에 맞는 다른 공격 경로를 보고했다. 이 표의 상태는 오직 현재
-cookie-disclosure recipe의 포팅 결과다.
+PHP 8.1.34/7.2.34의 초기 probe에서는 공개 체인이 기대하는 Set-Cookie disclosure가
+나오지 않았다. PHP 8.1은 후속 연구에서 FILE_START callback 직후의 OOM으로
+`PS(id)`만 남기고, 다음 요청의 trans-SID rewrite가 1.75 MiB stale value를 HTTP
+응답에 넣도록 해 해결했다. 누출 `+0x5ec8`의 main-chunk pointer와 623회 반복된
+`zval_ptr_dtor=libphp+0x457150`을 각각 검증해 두 base를 얻었다. 이어 files state를
+정상적으로 닫은 뒤 160 MiB scalar를 스트리밍해 `main+0x74160`의 stale reference를
+만들고 fixed-command B2로 3/3 proof를 생성했다. target의 `/proc/<pid>/maps`와
+`/proc/<pid>/mem`, GDB, ptrace는 end-to-end 성공 경로에 사용하지 않았다. 자세한 값은
+`docs/PHP-8.1-HTTP-RCE-VALIDATION.md`에 있다.
+
+여기서 3/3은 최종 `zif_system` runner 실행만 뜻한다. 이에 앞선 3회의
+`zif_passthru` HTTP-only calibration 결과는 producer/disclosure 개발 이력으로
+분리해 최종 profile의 검증 횟수에 포함하지 않았다.
+
+PHP 7.2는 여전히 intentionally non-runnable이며, 이는 취약성 부정이나 별도 exploit
+chain의 불가능성을 뜻하지 않는다. PHP 8.1에는 공식 최소 완화가 존재하고,
+연구진은 PHP 7.2를 포함하는 5.4+ 계보에서 버전·SAPI에 맞는 다른 공격 경로를
+보고했다.
 
 PHP 7.2.34에는 별도의 bounded pre-RINIT OOM 조사를 수행했다. exact image
 `php@sha256:4dc0f0115acf8c2f0df69295ae822e49f5ad5fe849725847f15aa0e5802b55f8`
@@ -270,15 +290,16 @@ destructor 인자로 들어가는 경로와 PHP 8.1에서
 `php_session_track_init → zend_reference_destroy → zend_hash_destroy → zif_passthru`
 경로를 각각 확인했다. 게시용 replay에는 GDB나 ptrace를 붙이지 않았다.
 
-다만 runner가 target worker의 로컬 `/proc/<pid>/maps`와
+다만 이 historical runner가 target worker의 로컬 `/proc/<pid>/maps`와
 `/proc/<pid>/mem`을 읽어 ASLR 값을 공급한다. 그러므로 이는 해당 exact build의
 RCE primitive와 terminal chain에 대한 검증이며, 원격 클라이언트가 주소를 얻는
 HTTP-only exploit 증거는 아니다. 고정 image, 고정 명령, internal Docker network만
 허용하는 실행기는 `poc/legacy-calibrated-rce/`, 상세 근거는
 `docs/LEGACY-RCE-VALIDATION.md`에 있다.
 
-PHP 7.3/7.4/8.0은 같은 raw-key geometry를 사용하고, PHP 8.1은 별도의
-stale-session 경로를 사용한다. PHP 8.1의 pure-HTTP ASLR leak은 확인하지 못했다.
+PHP 7.3/7.4/8.0은 같은 raw-key geometry를 사용하고, historical PHP 8.1 lab은
+별도의 stale-session 경로를 사용한다. 새 128 MiB PHP 8.1 profile은 trans-SID로
+pure-HTTP ASLR leak을 확인했으며, legacy 8 MiB geometry와 혼용하지 않는다.
 PHP 7.4/8.0/8.1에는 공식 EOL 최소 완화가 있지만 PHP 7.3에는 공식 php-src
 backport가 없다. PHP 7.2는 위 stale-state primitive까지 확인했으나 terminal
 RCE에는 도달하지 못했고, PHP 5.4–7.1은 benign 선행 표면만 확인했다. PHP
@@ -306,7 +327,7 @@ eugenesia archive image를 별도로 표시해 사용했다.
 ### 안전한 재현 runner
 
 새 `poc/multiversion/run-local-docker-lab.sh`는 command-line 인자를 거부하고
-bundled verified profile ID 네 개만 허용한다. 각 profile마다 다음 순서로 검증한다.
+bundled verified profile ID 다섯 개만 허용한다. 각 profile마다 다음 순서로 검증한다.
 
 1. target과 attacker image를 immutable digest로 불러오고 image ID를 확인한다.
 2. fresh `--internal` network와 `/out` volume을 만들며 host port를 게시하지 않는다.
@@ -454,8 +475,10 @@ bool(true)
 
 이번 실험이 확인한 것:
 
-- exact official image와 runtime profile이 일치하는 PHP 8.2.34, 8.3.35,
+- exact official image와 runtime profile이 일치하는 PHP 8.1.34, 8.2.34, 8.3.35,
   8.4.26, 8.5.11에서 full chain이 `www-data` proof를 생성한다.
+- PHP 8.1.34의 새 profile은 두 ASLR base를 trans-SID HTTP 응답에서 얻고 3/3 fresh
+  실행에서 process-memory 관찰 없이 fixed-command proof를 생성한다.
 - exact PHP 7.3.33, 7.4.33, 8.0.30, 8.1.34 Apache image에서 로컬 `/proc`로
   주소를 보정한 terminal chain이 고정 `id>/out/p` proof를 생성한다.
 - exact PHP 7.2.34에서 pre-RINIT OOM 뒤 stale `zend_reference`가 다음 요청에
@@ -480,7 +503,6 @@ bool(true)
 - 9bie 구현의 B2 heap 배치를 이 호스트에 맞춰 최종 RCE까지 보정하는 작업
 - 다른 커널·배포판·아키텍처에서 공개 PoC의 성공률
 - Bulletdev Chain A/B/C를 공식 두 CVE의 full chain으로 입증하는 것
-- PHP 8.1 locally calibrated lab에 사용할 pure-HTTP ASLR disclosure primitive
 - PHP 7.2의 refcount 및 24-byte reclaim blocker를 넘어 terminal primitive로
   연결하는 작업
 - PHP 5.4–7.1 각 historical branch/SAPI용 별도 exploit primitive를 개발하고

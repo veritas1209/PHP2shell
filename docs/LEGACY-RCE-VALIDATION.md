@@ -7,6 +7,13 @@
 > 명시적으로 허가받은 격리 환경에서만 사용하세요. runner는 외부 target과 임의
 > 명령을 받지 않으며 proof 명령을 `id>/out/p`로 고정합니다.
 
+> [!NOTE]
+> 이 문서는 local `/proc` 보정으로 terminal primitive를 먼저 확인한 historical
+> 경로를 보존합니다. 2026-10-24에는 PHP 8.1.34의 별도 128 MiB trans-SID
+> profile이 두 ASLR base를 HTTP 응답에서 복원해 3/3 fresh proof를 만들었습니다.
+> 새 end-to-end 결과는
+> [`PHP-8.1-HTTP-RCE-VALIDATION.md`](PHP-8.1-HTTP-RCE-VALIDATION.md)에 있습니다.
+
 ## 결론과 증거의 경계
 
 PHP 7.3.33, 7.4.33, 8.0.30 및 8.1.34의 exact official Apache image에서
@@ -21,6 +28,9 @@ uid=33(www-data) gid=33(www-data) groups=33(www-data)
 ASLR 주소를 target의 HTTP 응답에서 얻지 않는다. 로컬 Docker host의 root가
 `/proc/<worker>/maps`와 `/proc/<worker>/mem`을 읽어 주소를 공급하므로,
 standalone remote exploit 또는 HTTP-only ASLR bypass를 입증하지 않는다.
+PHP 8.1.34에 대한 이 제한은 이 legacy runner에만 적용된다. 새 multi-version
+profile은 다른 runtime과 producer를 사용해 HTTP-only ASLR disclosure까지
+검증했다.
 
 | Build | Primitive | 로컬 주소 보정 | 독립 fresh 결과 |
 |---|---|---|---:|
@@ -163,9 +173,11 @@ GDB trace는 forged reference를 거쳐 `zif_passthru`에 도달한 backtrace를
 | 3 | `0x7d464c7e2000` | `0x7d464ac00000` | proof 생성 |
 
 PHP 8.2+ standalone profiles에서 사용한 Set-Cookie disclosure는 8.1에 그대로
-적용되지 않는다. 독립적인 pure-HTTP ASLR leak은 확인되지 않았다. trans-SID
-후보도 usable address disclosure를 만들지 못했으므로, 이 lab은 두 runtime base를
-로컬 `/proc`에서만 공급한다.
+적용되지 않는다. 이 historical 8 MiB lab은 두 runtime base를 로컬 `/proc`에서
+공급한다. 후속 연구에서는 128 MiB runtime의 FILE_START OOM으로 `PS(id)`를 남긴
+뒤 trans-SID rewrite를 사용해 main chunk와 `libphp` base를 HTTP로 누출했다. 해당
+chain은 별도의 `php-8.1.34-apache-amd64-trans-sid` profile로 제공하며, 이 lab의
+producer geometry나 주소 보정과 혼용하지 않는다.
 
 ## 공식 EOL 완화와 PHP 7.3의 차이
 

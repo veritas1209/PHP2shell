@@ -28,6 +28,9 @@ The normal runner enforces all of these conditions before opening a socket:
   `r0-spray-v1` execution, including fixed or adaptive stage-2 leak recipes.
 - `pure_http_oom.py`: declarative `pure-http-oom-v1` A1/B1/A2/B2 recipe
   interpreter for the exact PHP 8.2.34 `php.ini-production` runtime.
+- `php81_trans_sid.py`: declarative `php81-trans-sid-v1` A1/B1/A2/B2 recipe
+  interpreter for the exact PHP 8.1.34 128 MiB trans-SID runtime. It validates
+  and consumes only addresses recovered from the target's HTTP response.
 - `profile.py`: strict profile/manifest loader, ABI geometry checks, and local
   address policy.
 - `elf.py`: bounds-checked ELF64 reader that hashes `libphp`, reads its GNU
@@ -36,19 +39,24 @@ The normal runner enforces all of these conditions before opening a socket:
 - `profile_tool.py`: offline ELF inspection, candidate-only calibration, and
   short-lived target-manifest creation.
 - `profile-v1.schema.json`: the profile interchange schema.
-- `profiles/`: four runnable exact-build profiles. PHP 8.2.34 uses the
-  pure-HTTP/OOM path; PHP 8.3.35 and 8.5.11 use adaptive stage 2 plus
-  `r0-spray-v1`; PHP 8.4.26 uses the fixed-array/fixed-carrier recipe.
+- `profiles/`: five runnable exact-build profiles. PHP 8.1.34 uses the
+  FILE_START/trans-SID path; PHP 8.2.34 uses the pure-HTTP/OOM path; PHP 8.3.35
+  and 8.5.11 use adaptive stage 2 plus `r0-spray-v1`; PHP 8.4.26 uses the
+  fixed-array/fixed-carrier recipe.
 - `run-local-docker-lab.sh` and `lab/`: the no-argument digest-pinned runner
   and its live Docker/image/runtime verification helpers.
+  `lab/index-trans-sid.php` emits one fixed local link for PHP 8.1 B1 so the
+  session URL rewriter places the disclosed SID in the HTTP response; the
+  other four profiles continue to mount `lab/index.php`.
 
-PHP 8.2.34, 8.3.35, 8.4.26, and 8.5.11 are runnable only for the exact fingerprints
-recorded in their profiles, after repeated local UID proofs and patched
-negative controls. PHP 7.2.34 and 8.1.34 remain non-runnable **in this
-standalone HTTP framework** because its disclosure paths do not work on them;
-see `SUPPORT.md`. A separate locally `/proc`-calibrated PHP 8.1.34 terminal
-RCE lab lives under `../legacy-calibrated-rce/`. Known ELF symbols alone never
-qualify a new profile.
+PHP 8.1.34, 8.2.34, 8.3.35, 8.4.26, and 8.5.11 are runnable only for the exact
+fingerprints recorded in their profiles, after repeated local UID proofs. The
+maintained 8.2–8.5 profiles also have patched negative controls. PHP 7.2.34
+remains non-runnable **in this standalone HTTP framework**; see `SUPPORT.md`.
+A historical locally `/proc`-calibrated PHP 8.1.34 terminal RCE lab lives
+under `../legacy-calibrated-rce/`, but its 8 MiB geometry is separate from the
+new verified 128 MiB HTTP-only profile. Known ELF symbols alone never qualify
+a new profile.
 
 ## Offline profile workflow
 
@@ -115,6 +123,11 @@ contains `uid=<number>`; validation and exploit failures return `2`.
   nested-field geometry, and B2 fake-reference/fake-array placement. Its
   large B1 request uses chunked transfer so the stock `post_max_size=8M`
   runtime follows the measured request path.
+- `php81-trans-sid-v1` records the PHP 8.1 FILE_START producer, raw stale-SID
+  offset, fixed 1.75 MiB trans-SID disclosure, HTTP leak invariants, streamed
+  A2 size, and B2 fake-reference placement. Its leak parser requires the
+  expected prefix, exact length, a 2 MiB-aligned main chunk, and one strongly
+  repeated page-aligned `zval_ptr_dtor` candidate before deriving either base.
 - The pure HTTP engine accepts only the fixed `id>/out/<simple-name>` proof
   command supplied by the guarded entry point. It cannot be selected with a
   public target, command, offset, or image override.
