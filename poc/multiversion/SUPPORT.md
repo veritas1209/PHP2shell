@@ -4,6 +4,14 @@
 fingerprint required by the fail-closed runner. It is not a claim about every
 build sharing the same PHP version.
 
+This table describes **harness support**, not the vulnerability's complete
+version range. The PHP CNA formally enumerates maintained PHP 8.2–8.5 release
+lines; PHP separately published minimal source mitigations for EOL 7.4, 8.0,
+and 8.1; Calif and Wiz report version/SAPI-specific attack paths reaching back
+to PHP 5.4.0. PHP 5.4–7.3 are not enumerated in the CNA records and have no
+official php-src backport branch. See
+[Version scope](../../docs/AFFECTED-SCOPE.md) for the sources and distinctions.
+
 | Branch/build | Status in this harness | Evidence-based reason |
 |---|---|---|
 | PHP 8.2.34 Apache | Verified and runnable | Five fresh tail-variant pure-HTTP/OOM proofs, including one independent run; exact stock 128M/display-errors-Off runtime |
@@ -13,9 +21,17 @@ build sharing the same PHP version.
 | PHP 8.1.34 Apache | Unsupported, no runnable profile | The adaptive disclosure returned no raw leak; the older session-cookie lifecycle clears the state used by the current chain. |
 | PHP 7.2.34 Apache | Unsupported, no runnable profile | The current disclosure did not produce a usable leak; the tested alternate OOM route also produced no proof. |
 
-The unsupported rows mean only that this PoC chain is not ported. They must
-not be interpreted as “not vulnerable.” A safe port would need a different,
-locally validated address-disclosure primitive and a new exact-build profile.
+The unsupported rows mean only that this exact PoC recipe is not ported. They
+must not be interpreted as “not vulnerable” or as contradicting the published
+5.4+ research range. A safe port would need the path appropriate to that PHP
+version/SAPI, a locally validated address-disclosure primitive, and a new
+exact-build profile.
+
+The separate [legacy scope probe](../legacy-scope-probe/) confirmed the
+default-enabled pre-script upload-progress surface on one exact Apache build
+from every PHP minor branch between 5.4 and 8.1. Those results are recorded in
+[the legacy runtime matrix](../../docs/LEGACY-RUNTIME-MATRIX.md). They are not
+runnable RCE profiles and are deliberately excluded from this allow-list.
 
 ## Patched controls
 

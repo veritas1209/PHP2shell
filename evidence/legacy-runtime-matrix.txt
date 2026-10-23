@@ -1,0 +1,19 @@
+# Local WSL Docker benign scope probe, 2026-10-23 Asia/Seoul
+# Columns: version | image digest | image ID | enabled | pre-script | script | cleanup | RCE tested
+5.4.45 | mirror.gcr.io/eugenesia/php@sha256:5681afdd0e07c7cbbece3f9cde77e5b7281768f54e1a2bbba319833c1ef638a9 | sha256:7cb054df8a5024e6fb9b2aba29568ec588103b0a56e67eff18cf02c9e62c0ea6 | yes | confirmed | reached | confirmed | no
+5.5.38 | mirror.gcr.io/library/php@sha256:be7f9332d3bea49084d74a0718a5400f7b5d128c1937575e76f72df3a41e8eac | sha256:ea0a3d41ce6c99e1b96c335f3a9e616ecae62f1fabfdfdede51bb66b506d14ee | yes | confirmed | reached | confirmed | no
+5.6.40 | mirror.gcr.io/library/php@sha256:0a40fd273961b99d8afe69a61a68c73c04bc0caa9de384d3b2dd9e7986eec86d | sha256:24c791995c1e498255393db857040793a7a040fa0f8ddd4bbe8fb230648e37d7 | yes | confirmed | reached | confirmed | no
+7.0.33 | mirror.gcr.io/library/php@sha256:1d34b2e491a02ba7a8d26478132015e197a5ffea37f0a93b42621d11cfe042cc | sha256:aa67a9c9814fb920a3aa01122b56010ddf1130710caf71a8871a0f1dbb4d78fd | yes | confirmed | reached | confirmed | no
+7.1.33 | mirror.gcr.io/library/php@sha256:70eefcf4372b279101259e905996b7733a87688d0b48625af01b55947836bb1f | sha256:b9858ffdd4d259fe208b6e5e4ae08f90c815dda98a7a8a45f3bf147485afaf4c | yes | confirmed | reached | confirmed | no
+7.2.34 | mirror.gcr.io/library/php@sha256:4dc0f0115acf8c2f0df69295ae822e49f5ad5fe849725847f15aa0e5802b55f8 | sha256:c61d277263e19d2ce30a6bae41115c811eb0f9274a601a5e3ee621e54c8a74f7 | yes | confirmed | reached | confirmed | no
+7.3.33 | mirror.gcr.io/library/php@sha256:b9872cd287ef72bc17d45d713aa2742f3d3bcf2503fea2506fd93aa94995219f | sha256:35da9118b3c0980fbaf84a4d410653642c9d55fb2f6c40011cc78de303837d64 | yes | confirmed | reached | confirmed | no
+7.4.33 | mirror.gcr.io/library/php@sha256:c9d7e608f73832673479770d66aacc8100011ec751d1905ff63fae3fe2e0ca6d | sha256:20a3732f422b7b28dcf99e8597f093a8c135efca62ff0dc02a2d92d916369413 | yes | confirmed | reached | confirmed | no
+8.0.30 | mirror.gcr.io/library/php@sha256:c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2 | sha256:3357132d6ece3a509ce6f8abf6e7cf9886b343c504cb58428a7302cbe7abe446 | yes | confirmed | reached | confirmed | no
+8.1.34 | mirror.gcr.io/library/php@sha256:72f0c0134922985022d55a39b0390d35dc7a10e961aa6c44fa35b4c3102f4268 | sha256:e6c924c6e862e6c74e01be964f88cb0c7ccbd673925e9a648cbbf77ff53b7ca1 | yes | confirmed | reached | confirmed | no
+
+# All runs used a Docker --internal network and no published host ports.
+# Marker observed during upload: upload_progress_bounded
+# Normal completion: index.php returned SCRIPT_REACHED and the progress record was removed.
+# Classification: attack-surface evidence, not RCE evidence.
+# This does not establish OOM, stale state, disclosure, ASLR bypass, or RCE.
+

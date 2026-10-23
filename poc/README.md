@@ -21,6 +21,13 @@
 | `php-8.4.26-apache-amd64-fixed-carrier` | 4/4 documented proof |
 | `php-8.5.11-apache-amd64-r0-spray` | 2/2 ptrace-free proof |
 
+이 네 profile은 runner의 exact-build **지원 범위**입니다. 취약점 전체 범위와
+같지 않습니다. PHP CNA의 공식 stable matrix는 8.2–8.5이고, PHP 프로젝트는
+EOL인 7.4/8.0/8.1에 최소 소스 완화를 제공했습니다. Calif/Wiz 연구진은
+버전·SAPI별 경로를 구분해 PHP 5.4.0까지 기술적 영향을 확인했다고 보고합니다.
+PHP 5.4–7.3에는 CNA 열거도 공식 php-src backport도 없습니다. 자세한 구분은
+[`../docs/AFFECTED-SCOPE.md`](../docs/AFFECTED-SCOPE.md)를 참고하세요.
+
 기본 실행은 네 profile을 모두 순서대로 검사합니다. script는 command-line 인자를
 받지 않습니다.
 
@@ -55,11 +62,29 @@ PHP2SHELL_PROFILE_ID=php-8.3.35-apache-amd64-r0-spray \
 수정판 PHP 8.2.35, 8.3.36, 8.4.27, 8.5.12 대조 실험에서는 같은 체인이
 disclosure 단계에서 실패했고 proof가 생성되지 않았습니다. PHP 8.1.34와
 7.2.34에는 실행 profile이 없습니다. 이는 해당 branch의 취약성 여부를
-부정하는 결론이 아닙니다.
+부정하거나 공개된 PHP 5.4+ 연구 범위를 축소하는 결론이 아닙니다.
 
 framework와 profile 형식의 상세 설명은
 [`multiversion/FRAMEWORK.md`](multiversion/FRAMEWORK.md), 지원 경계는
 [`multiversion/SUPPORT.md`](multiversion/SUPPORT.md)에 있습니다.
+
+## PHP 5.4–8.1 benign scope probe
+
+[`legacy-scope-probe/run-local-docker-lab.sh`](legacy-scope-probe/run-local-docker-lab.sh)는
+PHP 5.4.45부터 8.1.34까지 각 minor branch의 마지막 Apache build에서
+default-enabled upload-progress callback이 application script 전에 Session 값을
+만드는지만 확인합니다. 고정된 1 MiB inert upload를 사용하며 OOM, fake object,
+command payload 또는 RCE 단계를 포함하지 않습니다.
+
+```bash
+chmod +x poc/legacy-scope-probe/run-local-docker-lab.sh
+./poc/legacy-scope-probe/run-local-docker-lab.sh
+```
+
+이 probe의 성공은 pre-script upload-progress callback이라는 선행 표면만 해당
+exact build에서 확인합니다. 구버전의 end-to-end 취약성이나 RCE 성공 판정으로
+사용하면 안 됩니다. 결과와 한계는
+[`../docs/LEGACY-RUNTIME-MATRIX.md`](../docs/LEGACY-RUNTIME-MATRIX.md)에 있습니다.
 
 ## Legacy PHP 8.4 runner
 

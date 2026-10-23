@@ -204,7 +204,7 @@ class RunnerStaticTests(unittest.TestCase):
         support = (ROOT / "SUPPORT.md").read_text(encoding="utf-8")
         for version in ("PHP 7.2.34", "PHP 8.1.34", "PHP 8.2.34"):
             self.assertIn(version, support)
-        self.assertIn("not be interpreted as “not vulnerable.”", support)
+        self.assertIn("must not be interpreted as “not vulnerable”", support)
 
     def test_framework_documentation_matches_release_profiles_and_abi_name(self) -> None:
         framework = (ROOT / "FRAMEWORK.md").read_text(encoding="utf-8")
@@ -214,6 +214,49 @@ class RunnerStaticTests(unittest.TestCase):
         schema = json.loads((ROOT / "profile-v1.schema.json").read_text(encoding="utf-8"))
         description = schema["$defs"]["abi"]["properties"]["zend_execute_data"]["description"]
         self.assertIn("run_time_cache", description)
+
+
+class LegacyScopeProbeStaticTests(unittest.TestCase):
+    def test_legacy_probe_is_benign_pinned_and_internal_only(self) -> None:
+        legacy = ROOT.parent / "legacy-scope-probe"
+        runner = (legacy / "run-local-docker-lab.sh").read_text(encoding="utf-8")
+        client = (legacy / "probe.py").read_text(encoding="utf-8")
+        self.assertIn("if (( $# != 0 ));", runner)
+        self.assertIn("network create --internal", runner)
+        self.assertIn("published_ports=false", runner)
+        self.assertIn("rce_tested=false", runner)
+        self.assertNotRegex(runner, r"(?:^|\s)--publish(?:\s|=)")
+        self.assertNotIn("--cmd", runner)
+        self.assertNotIn("system(", client)
+        self.assertNotIn("subprocess", client)
+        self.assertIn("host must be a private Docker address", client)
+
+        versions = (
+            "5.4.45", "5.5.38", "5.6.40", "7.0.33", "7.1.33",
+            "7.2.34", "7.3.33", "7.4.33", "8.0.30", "8.1.34",
+        )
+        for version in versions:
+            self.assertIn(f"php-{version}-apache-surface", runner)
+            self.assertIn(f"VERSION={version}", runner)
+        self.assertEqual(len(re.findall(r"IMAGE='[^']+@sha256:[0-9a-f]{64}'", runner)), 10)
+        self.assertEqual(len(re.findall(r"IMAGE_ID='sha256:[0-9a-f]{64}'", runner)), 10)
+
+    def test_legacy_evidence_labels_surface_not_rce(self) -> None:
+        release_root = ROOT.parents[1]
+        evidence = (release_root / "evidence" / "legacy-runtime-matrix.txt").read_text(
+            encoding="utf-8"
+        )
+        report = (release_root / "docs" / "LEGACY-RUNTIME-MATRIX.md").read_text(
+            encoding="utf-8"
+        )
+        for version in (
+            "5.4.45", "5.5.38", "5.6.40", "7.0.33", "7.1.33",
+            "7.2.34", "7.3.33", "7.4.33", "8.0.30", "8.1.34",
+        ):
+            self.assertIn(version, evidence)
+            self.assertIn(version, report)
+        self.assertIn("not RCE evidence", evidence)
+        self.assertIn("does not demonstrate either CVE end to end", report)
 
 
 if __name__ == "__main__":

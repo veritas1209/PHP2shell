@@ -19,6 +19,20 @@ WSL2의 격리된 Docker 환경에서 PHP의 OOM bailout 및 stale request-globa
 > systems, production services, public wargame instances, or networks without
 > prior permission.
 
+## 취약점 범위와 이 저장소의 지원 범위
+
+`8.2–8.5`는 PHP CNA가 공식 CVE 레코드에 열거한 당시 유지보수 stable branch
+범위입니다. 이는 취약 코드 계보 전체의 하한이 아닙니다. PHP 프로젝트는 EOL인
+7.4, 8.0, 8.1에도 별도의 최소 소스 완화를 제공했고, Calif와 Wiz 연구진은
+버전·SAPI별 경로가 다르다는 전제 아래 PHP 5.4.0부터 적용 가능한 공격 경로를
+확인했다고 보고했습니다. PHP 5.4–7.3은 CNA 열거와 공식 php-src backport가
+없으므로, 연구 결과에 따른 기술적 영향과 공식 제품 범위를 구분해야 합니다.
+
+이 저장소에서 **실행 가능한 PoC 범위**는 더 좁습니다. 아래 네 exact build만
+검증됐으며, profile이 없는 버전을 안전하다고 판정하지 않습니다. 공식 범위,
+EOL 완화, 연구진이 확인한 PHP 5.4+ 계보의 차이는
+[버전 범위 문서](docs/AFFECTED-SCOPE.md)에 정리했습니다.
+
 ## 검증 결과
 
 이 결과는 버전 계열 전체에 대한 지원 선언이 아닙니다. 아래에 적은 공식
@@ -39,6 +53,14 @@ heap calibration이 일치하는 빌드만 실행 profile로 제공합니다.
 PHP 8.2.34는 stock `php.ini-production`의 128M/`display_errors=Off` 환경에 맞춘
 별도 `pure-http-oom-v1` profile을 사용합니다. PHP 8.1.34와 7.2.34는 실행
 profile로 제공하지 않습니다. 이는 해당 버전이 취약하지 않다는 판정이 아닙니다.
+
+별도의 benign 범위 프로브로 PHP 5.4.45부터 8.1.34까지 각 minor branch의 마지막
+Apache build 10개도 실행했습니다. 전부 기본 설정에서 application script보다 먼저
+`session.upload_progress` 레코드를 만들었습니다. 이 결과는 연구진이 설명한 5.4+
+경로의 선행 조건인 pre-script callback 표면을 해당 exact build에서 확인한 것이며,
+OOM·stale pointer·주소 유출 또는 RCE 성공을 뜻하지 않습니다. 실측 표는
+[레거시 runtime matrix](docs/LEGACY-RUNTIME-MATRIX.md),
+재현기는 [`poc/legacy-scope-probe`](poc/legacy-scope-probe/)에 있습니다.
 
 ## 권장 로컬 PoC
 
@@ -72,6 +94,15 @@ PHP2SHELL_PROFILE_ID=php-8.5.11-apache-amd64-r0-spray \
 8.4.27 조사 과정을 보존한 legacy runner입니다. 새 재현에는 exact-build 검증과
 격리 제약을 포함한 multi-version runner를 사용하세요.
 
+구버전 범위만 안전하게 확인하려면 명령 실행 payload가 없는 benign runner를
+사용할 수 있습니다. 이 runner는 고정된 1 MiB 업로드만 전송하고 RCE를 시도하지
+않습니다.
+
+```bash
+chmod +x poc/legacy-scope-probe/run-local-docker-lab.sh
+./poc/legacy-scope-probe/run-local-docker-lab.sh
+```
+
 ## 출처와 라이선스
 
 multi-version framework의 request lifecycle, leak sequence와 packed `r0` spray는
@@ -90,6 +121,9 @@ art, commit과 로컬 관찰 결과를 인용합니다. 자세한 범위는
 
 - [multi-version PoC 사용법](poc/README.md)
 - [multi-version 릴리스 검증 기록](poc/multiversion/VALIDATION.md)
+- [공식 CNA·EOL 완화·연구진 확인 범위](docs/AFFECTED-SCOPE.md)
+- [PHP 5.4–8.1 로컬 runtime matrix](docs/LEGACY-RUNTIME-MATRIX.md)
+- [레거시 범위 benign probe](poc/legacy-scope-probe/)
 - [공개 가능 범위 검토](docs/PUBLICATION-SCOPE.md)
 - [공식 자료 및 upstream 출처](REFERENCES.md)
 - [제3자 코드 처리 범위](THIRD_PARTY.md)

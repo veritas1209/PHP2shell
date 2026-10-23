@@ -4,6 +4,12 @@ This directory is a fail-closed refactor of the CVE-2026-109619 PoC. It is
 intended only for an isolated Docker/WSL lab that you own or are explicitly
 authorised to test.
 
+Framework support must not be confused with affected-version scope. The PHP
+CNA formally enumerates maintained PHP 8.2–8.5 branches; PHP supplied minimal
+source mitigations for EOL 7.4/8.0/8.1; and Calif/Wiz report distinct attack
+paths reaching PHP 5.4.0. PHP 5.4–7.3 lack both CNA enumeration and an official
+php-src backport. See [Version scope](../../docs/AFFECTED-SCOPE.md).
+
 The normal runner enforces all of these conditions before opening a socket:
 
 - the target resolves only to loopback, RFC1918, or IPv6 ULA addresses;

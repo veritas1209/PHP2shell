@@ -38,6 +38,29 @@ image만 사용한다. 새 internal Docker network와 proof volume을 만들고 
 공개하지 않으며, live target의 runtime과 `libphp` fingerprint를 검증한 뒤 고정
 명령 `id>/out/p`만 실행한다.
 
+### 버전 범위를 읽는 기준
+
+이 보고서에서는 다음 세 범위를 분리한다.
+
+| 구분 | 확인된 범위 | 의미 |
+|---|---|---|
+| PHP CNA의 공식 stable matrix | PHP 8.2.0–8.2.34, 8.3.0–8.3.35, 8.4.0–8.4.26, 8.5.0–8.5.11 | 두 CVE 레코드에 PHP CNA가 열거한 유지보수 branch와 첫 수정 릴리스 |
+| PHP 프로젝트의 EOL 최소 완화 | PHP 7.4, 8.0, 8.1 | 새 point release 없이 제공된 source-level fail-closed/업로드 진행 callback 비활성화 backport |
+| 연구진이 확인한 기술적 계보 | PHP 5.4.0 이상 pre-fix 코드 | Calif/Wiz가 버전·SAPI별로 서로 다른 공격 경로를 확인한 범위 |
+
+따라서 `8.2–8.5`는 공식 CNA stable matrix이고, PHP2Shell 계열의 기술적 영향
+하한은 아니다. Calif는 mod_php의 session upload-progress 경로가 PHP 5.4.0까지,
+별도의 partial-HashTable/OOM 경로가 PHP 7.3까지 거슬러 올라간다고 보고했다.
+Wiz도 적어도 하나의 관련 경로가 PHP 5.4부터 존재한다고 보고한다. 다만 이
+연구 결과는 모든 historical patch와 설정에서 두 CVE가 동시에 같은 방법으로
+재현된다는 뜻이 아니다. 실제 primitive는 PHP 버전, SAPI, 설정과 애플리케이션
+동작에 따라 달라진다.
+
+PHP 5.4–7.3은 PHP CNA 레코드에 열거되지 않았고 PHP 프로젝트가 제공한 공식
+php-src backport branch도 없다. EOL 버전은 PoC 성공 여부와 관계없이 유지보수
+릴리스로 업그레이드하거나 배포판/LTS 공급자의 검증된 backport를 적용해야 한다.
+근거와 commit 표는 [버전 범위 문서](AFFECTED-SCOPE.md)에 별도로 정리했다.
+
 ### 초기 PHP 8.4 A/B 조사
 
 공식 패치가 겨냥한 취약 상태와 패치 효과는 WSL2 Docker에서 재현됐다.
@@ -65,8 +88,9 @@ heap 주소 누출, `libphp` 주소 누출, `zif_system` 호출까지 모두 통
 PHP 8.4.27에 적용하면 stage 1에서 누출이 차단되고 proof가 생성되지 않았다.
 여기서 RCE는 interactive shell을 띄운 것이 아니라, 변조한 `pDestructor`가
 `zif_system("id>/out/p")`을 실행해 서버 측 결과 파일을 만든 것으로 확인했다.
-따라서 이번 결과는 **CVE-2026-109618/109619 결합 체인의 UAF·정보 유출·RCE와
-공식 패치 효과를 함께 재현한 것**이다.
+따라서 이번 결과는 **CVE-2026-109619 세션 체인의 UAF·정보 유출·RCE와,
+CVE-2026-109618/109619 각각의 공식 회귀 시나리오에서 패치 효과를 함께 재현한
+것**이다.
 
 검토한 [`Bulletdev/php2shell-poc`](https://github.com/Bulletdev/php2shell-poc/tree/2d80235ccdf62bd01c1ef6ce36ae4a93b31c88cd)의
 Chain A/B/C는 공식 두 CVE의 재현 코드로 볼 수 없다. 일부는 실제로 위험할 수
@@ -88,14 +112,24 @@ PHP가 공개한 기준은 다음과 같다.
   web-worker 권한의 RCE다.
 - PHP 8.4의 두 수정은 같은 보안 커밋
   [`506e87fa`](https://github.com/php/php-src/commit/506e87fa7dcdd306975e5b8f8265ee03527aacbf)에
-  포함됐다. 수정 릴리스는 PHP 8.2.35, 8.3.36, 8.4.27, 8.5.12다.
+  포함됐다. PHP CNA가 열거한 stable branch의 수정 릴리스는 PHP 8.2.35,
+  8.3.36, 8.4.27, 8.5.12다.
 - [PHP 8.4.27 릴리스 공지](https://www.php.net/releases/8_4_27.php)는 이를
   security release로 명시한다.
+- [PHP 보안 공지](https://www.php.net/archive/2026.php#2026-10-21-1)는 EOL인
+  PHP 7.4, 8.0, 8.1용 최소 source mitigation commit도 별도로 제공한다.
+- [Calif](https://calif.io/php2shell/)와
+  [Wiz](https://www.wiz.io/blog/php2shell-php-rce)의 연구 결과는 적용 가능한
+  공격 경로의 기술적 계보가 PHP 5.4.0까지 이어진다고 설명한다. 이는 CNA가
+  열거한 제품 범위 및 이 저장소의 exact-build 지원 범위와 별개의 축이다.
 
-이 두 CVE는 결합될 수 있다. multipart 처리 중 OOM이 첫 요청의 세션 상태를
-비정상적으로 남기고(CVE-2026-109618), 같은 persistent worker의 다음 multipart
-요청이 정상 초기화 전에 그 포인터를 소비하면(CVE-2026-109619) 공격자는 UAF를
-주소 누출과 제어 흐름 탈취로 발전시킬 수 있다.
+두 CVE 모두 fatal/OOM 이후의 내부 상태 안전성과 관련되지만 공식 분류상 서로
+다른 결함이다. 이 저장소의 runnable session upload-progress 체인은 첫 요청의
+fatal/OOM으로 request-owned 세션 상태를 남긴 뒤 같은 persistent worker의 다음
+요청이 그 stale 상태를 소비하는 **CVE-2026-109619** 체인이다.
+CVE-2026-109618은 부분 초기화된 요청 메모리를 shutdown이 유효한 값처럼 처리하는
+별도 OOM corruption 결함이며, 여기서는 공식 회귀 시나리오의 취약·패치 차등으로
+검증했다.
 
 ## PoC 선별 결과
 
@@ -112,7 +146,7 @@ PHP가 공개한 기준은 다음과 같다.
 4. 가짜 reference와 `HashTable`을 배치하고 `pDestructor`를 `zif_system`으로
    향하게 한다.
 
-즉, 두 CVE를 결합한 실제 php2shell 구조다. 다만 특정 PHP/Apache 빌드의
+즉, CVE-2026-109619의 실제 php2shell 구조다. 다만 특정 PHP/Apache 빌드의
 offset, heap 배치, 누출 창 형태에 강하게 의존한다.
 
 ### 2. cozybear 차등 체인
@@ -191,11 +225,33 @@ SHA-256 `643be7a49073fc4af53a2d87aec3ec4b7f67fade1f0d458d00c6f88675326178`로 �
 운영 환경의 안전 판정은 PoC 결과가 아니라 official advisory와 vendor backport
 상태를 기준으로 해야 한다.
 
-### PHP 8.1/7.2 지원 경계
+### 현재 PoC의 PHP 8.1/7.2 포팅 경계
 
 PHP 8.1.34/7.2.34의 source 및 runtime probe에서는 공개 체인이 기대하는 cookie
 disclosure가 나오지 않았다. 이들 branch는 intentionally non-runnable로
 문서화했으며, 취약성 부정이나 별도 exploit chain의 불가능성을 뜻하지 않는다.
+특히 PHP 8.1에는 공식 최소 완화가 존재하고, 연구진은 PHP 7.2를 포함하는 5.4+
+계보에서 버전·SAPI에 맞는 다른 공격 경로를 보고했다. 이 표의 상태는 오직 현재
+cookie-disclosure recipe의 포팅 결과다.
+
+### PHP 5.4–8.1 runtime surface matrix
+
+영향 하한을 문서만으로 추정하지 않기 위해 PHP 5.4.45, 5.5.38, 5.6.40,
+7.0.33, 7.1.33, 7.2.34, 7.3.33, 7.4.33, 8.0.30, 8.1.34 Apache build를
+WSL Docker에서 각각 실행했다. 고정된 1 MiB multipart upload를 64 KiB 뒤에서
+5초간 멈춘 동안 session file을 관찰했다. 열 build 모두 기본
+`session.upload_progress.enabled=1`이었고, application script가 응답하기 전에
+`upload_progress_bounded` 값이 생성됐다. 업로드를 끝내면 script marker가
+응답했고 progress 값은 정상 cleanup됐다.
+
+이 실험은 pre-script upload-progress callback과 session write라는 선행 표면만 해당
+exact build에서 확인한다. OOM, cross-request stale state, 주소 유출, ASLR bypass
+또는 RCE를 입증하지 않는다.
+전체 image digest와 재현기는 각각
+`evidence/legacy-runtime-matrix.txt`와 `poc/legacy-scope-probe/`에 있으며,
+상세한 해석은 `docs/LEGACY-RUNTIME-MATRIX.md`에 분리했다. PHP 5.4.45는 현행
+Docker가 원본 schema-v1 official manifest를 거부하므로 source가 공개된
+eugenesia archive image를 별도로 표시해 사용했다.
 
 ### 안전한 재현 runner
 
@@ -361,7 +417,8 @@ bool(true)
 - 동일 체인은 8.4.27에서 stage 1 주소 누출이 차단되고 proof를 만들지 못한다.
 - 9bie PoC의 B1도 같은 포인터 판별 오류를 고치면 성공하며, 계산된 `libphp`
   base가 실제 process map과 일치한다.
-- Bulletdev 코드의 동작 모델은 공식 두 CVE의 producer/consumer 모델과 다르다.
+- Bulletdev 코드의 동작 모델은 CVE-2026-109618의 partial-init shutdown 모델 및
+  CVE-2026-109619의 stale request-global 모델과 다르다.
 
 이번 실험의 범위 밖인 것:
 
@@ -370,10 +427,13 @@ bool(true)
 - Bulletdev Chain A/B/C를 공식 두 CVE의 full chain으로 입증하는 것
 - 현재 cookie disclosure가 포팅되지 않은 PHP 8.1/7.2를 위한 별도
   disclosure primitive 또는 runnable profile
+- PHP 5.4–8.1 각 historical branch/SAPI용 별도 exploit primitive를 개발하고
+  exact-build full-chain profile로 검증하는 작업
 
-운영 환경의 취약 여부는 PoC 성공/실패로 판단하면 안 된다. 공식 advisory가
-지정한 버전이면 [지원되는 패치 릴리스](https://www.php.net/releases/8_4_27.php)나
-해당 배포판의 검증된 backport로 업데이트해야 한다.
+운영 환경의 취약 여부는 PoC 성공/실패로 판단하면 안 된다. CNA가 열거한
+stable branch는 지원되는 수정 릴리스로 업데이트하고, EOL branch는 유지보수
+릴리스로 업그레이드하거나 해당 배포판/LTS 공급자의 검증된 backport를 적용해야
+한다.
 
 ## 첨부 증거
 

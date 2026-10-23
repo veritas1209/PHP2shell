@@ -4,6 +4,9 @@
 
 - [CVE-2026-109618 / GHSA-w8hw-w9fx-j79w](https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w)
 - [CVE-2026-109619 / GHSA-6wmf-4rv5-p3rp](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp)
+- [CVE-2026-109618 CNA JSON](https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/109xxx/CVE-2026-109618.json)
+- [CVE-2026-109619 CNA JSON](https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/109xxx/CVE-2026-109619.json)
+- [PHP security announcement and EOL source mitigations](https://www.php.net/archive/2026.php#2026-10-21-1)
 - [PHP 8.4 combined fix, `506e87fa`](https://github.com/php/php-src/commit/506e87fa7dcdd306975e5b8f8265ee03527aacbf)
 - [PHP 8.2 fix, `01a40e89`](https://github.com/php/php-src/commit/01a40e89fbfc499936e3b05888d8f00bfde886df)
 - [PHP 8.2.35 release](https://www.php.net/releases/8_2_35.php)
@@ -12,6 +15,25 @@
 - [PHP 8.5.12 release](https://www.php.net/releases/8_5_12.php)
 - [Official OOM regression test](https://github.com/php/php-src/blob/php-8.4.27/Zend/tests/oom_after_main_script.phpt)
 - [Official RFC1867 regression test](https://github.com/php/php-src/blob/php-8.4.27/ext/session/tests/rfc1867_no_user_code.phpt)
+
+## Primary vulnerability research
+
+- [Calif: PHP2Shell](https://calif.io/php2shell/) — reports distinct
+  version/SAPI-dependent paths reaching PHP 5.4.0
+- [Wiz: PHP2Shell PHP RCE](https://www.wiz.io/blog/php2shell-php-rce) — reports
+  that at least one relevant path affects PHP releases back to 5.4
+
+These research findings describe technical lineage and exploit paths. They are
+broader than the maintained PHP 8.2–8.5 branches enumerated by the PHP CNA and
+broader than this repository's four exact-build runnable profiles. See
+[`docs/AFFECTED-SCOPE.md`](docs/AFFECTED-SCOPE.md).
+
+## Historical PHP 5.4 lab image
+
+- [`eugenesia/docker-library-php`](https://github.com/eugenesia/docker-library-php)
+  supplies the source for the digest-pinned PHP 5.4.45 Apache image used only
+  by the benign legacy scope probe. It is derived from the historical official
+  image but is not represented here as a PHP or Docker official build.
 
 ## Licensed source adapted by the multi-version framework
 

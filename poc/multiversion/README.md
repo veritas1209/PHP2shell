@@ -11,6 +11,13 @@ four exact official `linux/amd64` PHP Apache images. A PHP version string is
 not enough: the image digest, image ID, `libphp` hash/build ID and symbols,
 runtime settings, request geometry, and heap calibration must all match.
 
+The four images are this harness's exact-build support set, not the full
+affected-version range. The PHP CNA matrix enumerates maintained PHP 8.2–8.5
+lines, PHP published minimal mitigations for EOL 7.4/8.0/8.1, and Calif/Wiz
+report version- and SAPI-dependent paths back to PHP 5.4.0. PHP 5.4–7.3 have
+neither CNA enumeration nor an official php-src backport branch. See
+[Version scope](../../docs/AFFECTED-SCOPE.md).
+
 ## Verified profiles
 
 | Profile | Stage 2 | Stage 3 | Local proof |
@@ -32,7 +39,8 @@ reclaims the stale session value with the fixed proof payload. PHP 8.2.35
 stopped at B1 with no heap pointers and no proof in 3/3 fresh controls.
 
 PHP 8.1.34 and 7.2.34 remain deliberately **non-runnable**. This does not mean
-those branches are unaffected; see [SUPPORT.md](SUPPORT.md).
+those branches are unaffected or narrow the published PHP 5.4+ research range;
+see [SUPPORT.md](SUPPORT.md).
 
 ## Run in WSL or Linux
 
