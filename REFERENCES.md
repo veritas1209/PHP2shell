@@ -7,6 +7,9 @@
 - [CVE-2026-109618 CNA JSON](https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/109xxx/CVE-2026-109618.json)
 - [CVE-2026-109619 CNA JSON](https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/109xxx/CVE-2026-109619.json)
 - [PHP security announcement and EOL source mitigations](https://www.php.net/archive/2026.php#2026-10-21-1)
+- [PHP 7.4 minimal source mitigation, `712e60f9`](https://github.com/php/php-src/commit/712e60f9edfd03f0960fc4fc3c2c375f42b90aa2)
+- [PHP 8.0 minimal source mitigation, `82f8f31b`](https://github.com/php/php-src/commit/82f8f31b16a035c1b67cc253e79f7cc288f4cc20)
+- [PHP 8.1 minimal source mitigation, `1d7dec17`](https://github.com/php/php-src/commit/1d7dec178a094e6e75b229ce22754045f8c6070a)
 - [PHP 8.4 combined fix, `506e87fa`](https://github.com/php/php-src/commit/506e87fa7dcdd306975e5b8f8265ee03527aacbf)
 - [PHP 8.2 fix, `01a40e89`](https://github.com/php/php-src/commit/01a40e89fbfc499936e3b05888d8f00bfde886df)
 - [PHP 8.2.35 release](https://www.php.net/releases/8_2_35.php)
@@ -25,7 +28,10 @@
 
 These research findings describe technical lineage and exploit paths. They are
 broader than the maintained PHP 8.2–8.5 branches enumerated by the PHP CNA and
-broader than this repository's four exact-build runnable profiles. See
+broader than this repository's four standalone HTTP profiles. This repository
+also contains locally `/proc`-calibrated terminal RCE labs for exact PHP
+7.3.33, 7.4.33, 8.0.30, and 8.1.34 builds, which are documented as a separate
+evidence class. See
 [`docs/AFFECTED-SCOPE.md`](docs/AFFECTED-SCOPE.md).
 
 ## Historical PHP 5.4 lab image
@@ -35,15 +41,16 @@ broader than this repository's four exact-build runnable profiles. See
   by the benign legacy scope probe. It is derived from the historical official
   image but is not represented here as a PHP or Docker official build.
 
-## Licensed source adapted by the multi-version framework
+## Licensed source adapted by the PoC frameworks
 
 - [`78ResearchLab/PHP2Shell-Full-Chain-Exploit`](https://github.com/78ResearchLab/PHP2Shell-Full-Chain-Exploit), commit `167085410a9342fafbd1bd64f5006920dbc83b8e`
 - Reviewed upstream `exploit.py` SHA-256: `6aadf7bc93b3f4f93b755fed727d3f017e806419c96853290cf2250e567c1323`
 - License: MIT, `Copyright (c) 2026 78ResearchLab`
 
-The request lifecycle, leak sequence, and packed `r0` spray in the bundled
-multi-version framework are adapted in part from this commit. The copyright
-notice and complete MIT text are preserved under `poc/multiversion/`.
+The request lifecycle, leak sequence, packed `r0` spray, and parts of the
+legacy terminal reclaim labs are adapted from this commit. The copyright
+notice and complete MIT text are preserved under `poc/multiversion/` and
+`poc/legacy-calibrated-rce/`.
 
 ## Other public PoC repositories reviewed
 
@@ -55,13 +62,22 @@ These three repositories reported no detected license in GitHub's repository
 metadata when checked on 2026-10-23. Their complete source trees are referenced
 rather than redistributed here.
 
+The exact PHP 7.2 bounded result and its no-RCE boundary are documented in
+[`docs/PHP-7.2-STALE-STATE.md`](docs/PHP-7.2-STALE-STATE.md).
+
 ## Exact Docker image identity
 
-The runnable profiles cover only the following official PHP Apache
-`linux/amd64` images. A PHP version string alone is not sufficient.
+The standalone profiles, locally calibrated labs, and bounded PHP 7.2
+investigation use the following exact official PHP Apache `linux/amd64`
+images. A PHP version string alone is not sufficient.
 
 | Role | Version | Repo/index digest | Image/config ID |
 |---|---|---|---|
+| Stale-state confirmed, no RCE | 7.2.34 | `sha256:4dc0f0115acf8c2f0df69295ae822e49f5ad5fe849725847f15aa0e5802b55f8` | `sha256:c61d277263e19d2ce30a6bae41115c811eb0f9274a601a5e3ee621e54c8a74f7` |
+| Locally calibrated proof | 7.3.33 | `sha256:b9872cd287ef72bc17d45d713aa2742f3d3bcf2503fea2506fd93aa94995219f` | `sha256:35da9118b3c0980fbaf84a4d410653642c9d55fb2f6c40011cc78de303837d64` |
+| Locally calibrated proof | 7.4.33 | `sha256:c9d7e608f73832673479770d66aacc8100011ec751d1905ff63fae3fe2e0ca6d` | `sha256:20a3732f422b7b28dcf99e8597f093a8c135efca62ff0dc02a2d92d916369413` |
+| Locally calibrated proof | 8.0.30 | `sha256:c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2` | `sha256:3357132d6ece3a509ce6f8abf6e7cf9886b343c504cb58428a7302cbe7abe446` |
+| Locally calibrated proof | 8.1.34 | `sha256:72f0c0134922985022d55a39b0390d35dc7a10e961aa6c44fa35b4c3102f4268` | `sha256:e6c924c6e862e6c74e01be964f88cb0c7ccbd673925e9a648cbbf77ff53b7ca1` |
 | Verified proof | 8.2.34 | `sha256:1650dcb528360aad05d6ed2f83cb403a2a39c31bd14552efd9a747b2207dea86` | `sha256:f380b054d6364b80f0952a9198e5dc1e1ab4d809aad24d3f3174f059e863f48a` |
 | Fixed control | 8.2.35 | `sha256:fa8966fbaaa06981e549e7a33eb8a68f4cf677d6a82e1d6350adc5d85fe8f740` | `sha256:745174152c4e5ddc9854adea24a2c408129c27384010e29b31303e1b50e3caae` |
 | Verified proof | 8.3.35 | `sha256:c59c808172ee3672cd334f8f2a5d7b1480a9d7273a368f412b8ee9b4ef418184` | `sha256:90620e863c15e608cfebd058554d82d2c7fd816bdd690adc69027409cbb7a369` |

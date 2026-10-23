@@ -60,18 +60,30 @@ done
     exit 1
 }
 
-CONTEXT_NAME="$("$DOCKER_BIN" context show 2>/dev/null)" || {
-    echo "cannot determine the Docker context" >&2
-    exit 1
-}
-CONTEXT_ENDPOINT="$(
-    "$DOCKER_BIN" context inspect "$CONTEXT_NAME" \
-        --format '{{.Endpoints.docker.Host}}' 2>/dev/null
-)" || {
-    echo "cannot inspect Docker context: $CONTEXT_NAME" >&2
-    exit 1
-}
-EFFECTIVE_ENDPOINT="${DOCKER_HOST:-$CONTEXT_ENDPOINT}"
+if [[ -n "${DOCKER_CONTEXT:-}" ]]; then
+    CONTEXT_NAME="$DOCKER_CONTEXT"
+    CONTEXT_ENDPOINT="$(
+        "$DOCKER_BIN" context inspect "$CONTEXT_NAME" \
+            --format '{{.Endpoints.docker.Host}}' 2>/dev/null
+    )" || {
+        echo "cannot inspect Docker context: $CONTEXT_NAME" >&2
+        exit 1
+    }
+    EFFECTIVE_ENDPOINT="$CONTEXT_ENDPOINT"
+else
+    CONTEXT_NAME="$("$DOCKER_BIN" context show 2>/dev/null)" || {
+        echo "cannot determine the Docker context" >&2
+        exit 1
+    }
+    CONTEXT_ENDPOINT="$(
+        "$DOCKER_BIN" context inspect "$CONTEXT_NAME" \
+            --format '{{.Endpoints.docker.Host}}' 2>/dev/null
+    )" || {
+        echo "cannot inspect Docker context: $CONTEXT_NAME" >&2
+        exit 1
+    }
+    EFFECTIVE_ENDPOINT="${DOCKER_HOST:-$CONTEXT_ENDPOINT}"
+fi
 case "$EFFECTIVE_ENDPOINT" in
     unix://*) ;;
     *)

@@ -259,5 +259,98 @@ class LegacyScopeProbeStaticTests(unittest.TestCase):
         self.assertIn("does not demonstrate either CVE end to end", report)
 
 
+class LegacyCalibratedRCEStaticTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.legacy = ROOT.parent / "legacy-calibrated-rce"
+        self.raw = self.legacy / "raw-key-partial-bucket"
+        self.php81 = self.legacy / "php-8.1.34"
+
+    def test_dispatcher_and_child_allow_lists_are_closed(self) -> None:
+        dispatcher = (self.legacy / "run-local-docker-lab.sh").read_text(encoding="utf-8")
+        self.assertIn("if (( $# != 0 ));", dispatcher)
+        self.assertIn("profiles=(raw-key-partial-bucket php-8.1.34)", dispatcher)
+        self.assertIn("raw-key-partial-bucket|php-8.1.34", dispatcher)
+        self.assertNotIn("php-7.4.33/run-local-docker-lab.sh", dispatcher)
+
+        raw_runner = (self.raw / "run-local-docker-lab.sh").read_text(encoding="utf-8")
+        self.assertIn("if (( $# != 0 ));", raw_runner)
+        for profile in ("php-7.3.33", "php-7.4.33", "php-8.0.30"):
+            self.assertIn(f'"{profile}"', raw_runner)
+        self.assertIn("refusing unknown raw-key profile ID", raw_runner)
+        self.assertEqual(
+            len(re.findall(r'(?:php|python)@sha256:[0-9a-f]{64}', raw_runner)),
+            4,
+        )
+
+    def test_legacy_runners_are_internal_fixed_command_labs(self) -> None:
+        fixed_users = {self.raw: "65532:65532", self.php81: "65534:65534"}
+        for directory, fixed_user in fixed_users.items():
+            runner = (directory / "run-local-docker-lab.sh").read_text(encoding="utf-8")
+            with self.subTest(directory=directory.name):
+                self.assertIn("network create --internal", runner)
+                self.assertNotRegex(runner, r"(?:^|\s)--publish(?:\s|=)")
+                self.assertNotRegex(runner, r"(?:^|\s)-p\s")
+                self.assertIn("--read-only", runner)
+                self.assertIn("--cap-drop ALL", runner)
+                self.assertIn(f"--user {fixed_user}", runner)
+                self.assertIn("local /proc calibration requires root", runner)
+
+        raw_probe = (self.raw / "probe.py").read_text(encoding="utf-8")
+        php81_probe = (self.php81 / "exploit.py").read_text(encoding="utf-8")
+        self.assertIn('PROOF_COMMAND = b"id>/out/p\\x00"', raw_probe)
+        self.assertIn('FIXED_COMMAND = b"id>/out/p"', php81_probe)
+        self.assertIn("require_isolated_target()", raw_probe)
+        self.assertIn("require_isolated_target()", php81_probe)
+        self.assertNotIn("--cmd", raw_probe)
+        self.assertNotIn("--cmd", php81_probe)
+
+        php81_runner = (self.php81 / "run-local-docker-lab.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("rm -f /out/p", php81_runner)
+        self.assertIn("test ! -e /out/p", php81_runner)
+        self.assertIn("cleanup_failed", php81_runner)
+
+    def test_legacy_runners_reject_non_unix_endpoint_before_daemon_info(self) -> None:
+        for path in (
+            self.raw / "run-local-docker-lab.sh",
+            self.php81 / "run-local-docker-lab.sh",
+            ROOT / "run-local-docker-lab.sh",
+            ROOT.parent / "legacy-scope-probe" / "run-local-docker-lab.sh",
+            ROOT.parent / "run-wsl-docker-lab.sh",
+        ):
+            text = path.read_text(encoding="utf-8")
+            with self.subTest(path=path):
+                self.assertIn("DOCKER_CONTEXT", text)
+                self.assertIn("DOCKER_HOST", text)
+                rejection_match = re.search(
+                    r"refusing non-(?:Unix|local) Docker endpoint", text
+                )
+                daemon_info_match = re.search(
+                    r'(?m)^\s*"?\$DOCKER_BIN"? info', text
+                )
+                self.assertIsNotNone(rejection_match)
+                self.assertIsNotNone(daemon_info_match)
+                assert rejection_match is not None
+                assert daemon_info_match is not None
+                rejection = rejection_match.start()
+                daemon_info = daemon_info_match.start()
+                self.assertLess(rejection, daemon_info)
+
+    def test_public_evidence_states_proc_calibration_limit(self) -> None:
+        release_root = ROOT.parents[1]
+        report = (release_root / "docs" / "LEGACY-RCE-VALIDATION.md").read_text(
+            encoding="utf-8"
+        )
+        evidence = (release_root / "evidence" / "legacy-rce" / "README.md").read_text(
+            encoding="utf-8"
+        )
+        for text in (report, evidence):
+            self.assertIn("/proc", text)
+            self.assertRegex(text, r"HTTP-only|HTTP only")
+        for version in ("7.3.33", "7.4.33", "8.0.30", "8.1.34"):
+            self.assertIn(version, report)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

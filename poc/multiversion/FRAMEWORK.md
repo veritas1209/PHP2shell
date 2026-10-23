@@ -44,9 +44,11 @@ The normal runner enforces all of these conditions before opening a socket:
 
 PHP 8.2.34, 8.3.35, 8.4.26, and 8.5.11 are runnable only for the exact fingerprints
 recorded in their profiles, after repeated local UID proofs and patched
-negative controls. PHP 7.2.34 and 8.1.34 remain non-runnable because the
-current disclosure paths do not work on them; see `SUPPORT.md`. Known
-ELF symbols alone never qualify a new profile.
+negative controls. PHP 7.2.34 and 8.1.34 remain non-runnable **in this
+standalone HTTP framework** because its disclosure paths do not work on them;
+see `SUPPORT.md`. A separate locally `/proc`-calibrated PHP 8.1.34 terminal
+RCE lab lives under `../legacy-calibrated-rce/`. Known ELF symbols alone never
+qualify a new profile.
 
 ## Offline profile workflow
 

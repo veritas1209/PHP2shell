@@ -18,14 +18,24 @@ official php-src backport branch. See
 | PHP 8.3.35 Apache | Verified and runnable | Two independent ptrace-free proofs; adaptive leak and r0 `0x74180` |
 | PHP 8.4.26 Apache | Verified and runnable | Four documented proofs; fixed carrier `0x690d8` |
 | PHP 8.5.11 Apache | Verified and runnable | Two independent ptrace-free proofs; r0 `0x73180`, one 19-byte pre-session field, 127 large values |
-| PHP 8.1.34 Apache | Unsupported, no runnable profile | The adaptive disclosure returned no raw leak; the older session-cookie lifecycle clears the state used by the current chain. |
-| PHP 7.2.34 Apache | Unsupported, no runnable profile | The current disclosure did not produce a usable leak; the tested alternate OOM route also produced no proof. |
+| PHP 8.1.34 Apache | Unsupported in this framework; separate locally calibrated RCE lab | The adaptive disclosure returned no raw leak and the older session-cookie lifecycle clears that state. The separate lab reaches `zif_passthru` after local `/proc` supplies libphp and heap bases. |
+| PHP 7.2.34 Apache | Unsupported; bounded stale-state result, no RCE profile | On exact image `php@sha256:4dc0f0115acf8c2f0df69295ae822e49f5ad5fe849725847f15aa0e5802b55f8`, pre-RINIT OOM left a stale `zend_reference` at chunk `+0x6a018` in 8/8 fresh containers. Refcount 2 only fell to 1, tested inputs did not reclaim the 24-byte object, and no destructor or proof occurred. |
 
 The unsupported rows mean only that this exact PoC recipe is not ported. They
 must not be interpreted as “not vulnerable” or as contradicting the published
 5.4+ research range. A safe port would need the path appropriate to that PHP
 version/SAPI, a locally validated address-disclosure primitive, and a new
 exact-build profile.
+
+The PHP 7.2 bounded result is documented in
+[`PHP-7.2-STALE-STATE.md`](../../docs/PHP-7.2-STALE-STATE.md). PHP 7.2's source
+allocates a key before incrementing `nNumUsed`, so the PHP 7.3+ raw-key
+partial-`Bucket` producer is not portable to this build.
+
+The [legacy calibrated labs](../legacy-calibrated-rce/) deliberately use a
+different support class. PHP 7.3.33, 7.4.33, 8.0.30, and 8.1.34 have repeated
+terminal UID proofs there, but a local root reads process memory to supply ASLR addresses.
+They therefore do not qualify for this harness's standalone HTTP allow-list.
 
 The separate [legacy scope probe](../legacy-scope-probe/) confirmed the
 default-enabled pre-script upload-progress surface on one exact Apache build

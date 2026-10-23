@@ -5,7 +5,7 @@
 
 | Project | Reviewed commit | License | Treatment here |
 |---|---|---|---|
-| [`78ResearchLab/PHP2Shell-Full-Chain-Exploit`](https://github.com/78ResearchLab/PHP2Shell-Full-Chain-Exploit) | `167085410a9342fafbd1bd64f5006920dbc83b8e` | MIT | request lifecycle, leak sequence 및 packed `r0` spray를 일부 수정·확장하여 `poc/multiversion/`에 포함 |
+| [`78ResearchLab/PHP2Shell-Full-Chain-Exploit`](https://github.com/78ResearchLab/PHP2Shell-Full-Chain-Exploit) | `167085410a9342fafbd1bd64f5006920dbc83b8e` | MIT | request lifecycle, leak sequence 및 reclaim/spray 일부를 수정·확장하여 `poc/multiversion/`과 PHP 7.3/7.4/8.0 raw-key 및 PHP 8.1 stale-session lab을 포함한 `poc/legacy-calibrated-rce/`에 반영 |
 
 검토한 upstream `exploit.py`의 SHA-256은
 `6aadf7bc93b3f4f93b755fed727d3f017e806419c96853290cf2250e567c1323`입니다.
@@ -15,6 +15,8 @@
 - `poc/multiversion/THIRD_PARTY_NOTICES.md`
 - `poc/multiversion/THIRD_PARTY_LICENSES/78ResearchLab-MIT.txt`
 - `poc/multiversion/LICENSE`
+- `poc/legacy-calibrated-rce/THIRD_PARTY_NOTICES.md`
+- `poc/legacy-calibrated-rce/THIRD_PARTY_LICENSES/78ResearchLab-MIT.txt`
 
 MIT 라이선스는 해당 고지와 조건에 따라 사용, 수정 및 재배포를 허용합니다. 이
 저장소의 연구 전용 사용 안내는 시험 대상과 사용 행위를 제한하는 안전·권한

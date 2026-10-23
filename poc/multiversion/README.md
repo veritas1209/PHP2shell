@@ -38,9 +38,12 @@ session ID, B1 discloses the exact-build main chunk and `libphp`, and A2/B2
 reclaims the stale session value with the fixed proof payload. PHP 8.2.35
 stopped at B1 with no heap pointers and no proof in 3/3 fresh controls.
 
-PHP 8.1.34 and 7.2.34 remain deliberately **non-runnable**. This does not mean
-those branches are unaffected or narrow the published PHP 5.4+ research range;
-see [SUPPORT.md](SUPPORT.md).
+PHP 8.1.34 and 7.2.34 remain deliberately **non-runnable in this standalone
+HTTP framework**. A separate PHP 8.1.34 lab verifies the terminal RCE chain
+after local `/proc` address calibration; it is not an HTTP-only ASLR bypass.
+This distinction does not mean the unsupported branch is unaffected or narrow
+the published PHP 5.4+ research range; see [SUPPORT.md](SUPPORT.md) and
+[`../legacy-calibrated-rce/`](../legacy-calibrated-rce/).
 
 ## Run in WSL or Linux
 

@@ -16,4 +16,3 @@
 # Normal completion: index.php returned SCRIPT_REACHED and the progress record was removed.
 # Classification: attack-surface evidence, not RCE evidence.
 # This does not establish OOM, stale state, disclosure, ASLR bypass, or RCE.
-

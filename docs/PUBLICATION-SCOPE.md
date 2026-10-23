@@ -17,11 +17,21 @@
 - `id>/out/p`로 고정한 `www-data` 권한 proof
 - image digest/ID, `libphp` hash/build ID, runtime과 heap calibration을 묶은 profile
 - 외부 target이나 임의 명령을 받지 않는 local-only multi-version runner
-- PHP 8.1/7.2에 현재 disclosure chain을 포팅하지 못한 구조적 이유
+- PHP 7.3.33/7.4.33/8.0.30/8.1.34에서 local `/proc` 주소 보정 뒤 고정 명령의
+  terminal RCE에 도달한 exact-build 실험기와 그 한계
+- PHP 8.1/7.2에 standalone HTTP disclosure chain을 포팅하지 못한 구조적 이유
+- PHP 7.2.34에서 8회 반복 확인한 request 간 stale `zend_reference`, 두 terminal
+  blocker와 proof 부재를 정리한 bounded no-RCE 조사 결과
 
-마지막 항목은 해당 버전이 안전하거나 취약하지 않다는 결론이 아닙니다. 검증한
-사실은 현재 체인이 요구하는 session-cookie disclosure가 성립하지 않았다는
-것뿐이며, 별도의 primitive를 이용하는 체인은 본 공개 PoC의 범위 밖입니다.
+마지막 항목은 해당 버전이 안전하거나 취약하지 않다는 결론이 아닙니다. 네 legacy
+build는 별도 terminal chain으로 실제 명령 실행까지 확인했지만 주소는 로컬
+process memory에서 공급했습니다. PHP 8.1의 별도 stale-session 경로에서도
+pure-HTTP ASLR leak은 확인하지 못했습니다. 따라서 standalone remote ASLR
+bypass라는 주장은 포함하지 않습니다. PHP 5.4–7.2의 end-to-end RCE는 이
+저장소에서 확인되지 않았습니다. PHP 7.2는 benign 표면을 넘어 stale-state
+primitive까지 확인했지만 destructor나 command execution에는 도달하지 않았고,
+PHP 5.4–7.1은 benign 선행 표면만 확인했습니다. PHP 7.3은 공식 php-src
+backport가 없는 EOL branch라는 점도 별도로 명시합니다.
 
 다음 자료는 공개 대상에서 제외했습니다.
 
@@ -40,12 +50,19 @@ network와 proof volume을 만들고 host port를 공개하지 않습니다. liv
 fingerprint를 profile과 대조한 뒤 고정 명령 `id>/out/p`만 사용하고, 실행 후
 container, network, volume과 임시 파일을 정리합니다.
 
+`poc/legacy-calibrated-rce/run-local-docker-lab.sh`도 command-line 인자를 거부하고
+고정 exact images, 새 internal network와 고정 `id>/out/p`만 사용합니다. 이
+runner는 로컬 `/proc/<worker>/maps`와 `/proc/<worker>/mem`을 읽어 ASLR 주소를
+보정하므로 root가 필요하며, 그 사실을 코드·README·증거에 명시합니다. 외부 target
+또는 임의 command로 바꾸는 인터페이스는 제공하지 않습니다.
+
 이 제한은 외부 시스템을 시험할 수 있는 권한을 만들어 주지 않습니다. 사용자는
 저장소 코드와 별개로 대상 소유권 또는 명시적인 시험 허가를 확보해야 합니다.
 
 ## 저작권 및 라이선스 처리
 
-multi-version framework의 request lifecycle, leak sequence와 packed `r0` spray는
+multi-version framework와 legacy calibrated lab의 request lifecycle, leak
+sequence와 reclaim payload 일부는
 다음 MIT 라이선스 프로젝트에서 일부를 수정·확장했습니다.
 
 - Project: `78ResearchLab/PHP2Shell-Full-Chain-Exploit`
@@ -57,7 +74,9 @@ multi-version framework의 request lifecycle, leak sequence와 packed `r0` spray
 
 저작권 고지와 MIT 전문은 `poc/multiversion/THIRD_PARTY_NOTICES.md`,
 `poc/multiversion/THIRD_PARTY_LICENSES/78ResearchLab-MIT.txt` 및 해당 디렉터리의
-`LICENSE`에 보존합니다.
+`LICENSE`, 그리고 `poc/legacy-calibrated-rce/THIRD_PARTY_NOTICES.md`와
+`poc/legacy-calibrated-rce/THIRD_PARTY_LICENSES/78ResearchLab-MIT.txt`에
+보존합니다.
 
 `cozybear-dev/cve-2026-109619`, `9bie/php2shell-bypass-aslr-exp`,
 `Bulletdev/php2shell-poc`는 검토 시점의 GitHub metadata에서 명시적 라이선스를

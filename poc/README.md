@@ -61,12 +61,45 @@ PHP2SHELL_PROFILE_ID=php-8.3.35-apache-amd64-r0-spray \
 
 수정판 PHP 8.2.35, 8.3.36, 8.4.27, 8.5.12 대조 실험에서는 같은 체인이
 disclosure 단계에서 실패했고 proof가 생성되지 않았습니다. PHP 8.1.34와
-7.2.34에는 실행 profile이 없습니다. 이는 해당 branch의 취약성 여부를
-부정하거나 공개된 PHP 5.4+ 연구 범위를 축소하는 결론이 아닙니다.
+7.2.34에는 이 **standalone HTTP framework**의 실행 profile이 없습니다. PHP
+7.3.33, 7.4.33, 8.0.30, 8.1.34의 별도 로컬 보정형 terminal RCE lab은 아래에
+있습니다. PHP 7.2.34에서는 pre-RINIT OOM 뒤 request 간 stale
+`zend_reference`를 8/8 fresh 실행에서 확인했지만, refcount와 24-byte reclaim
+조건을 넘지 못해 destructor와 proof가 발생하지 않았습니다. PHP 5.4–7.1은 benign
+선행 표면만 확인했으며, PHP 5.4–7.2의 end-to-end RCE는 아직 검증되지 않았습니다.
+자세한 7.2 경계는
+[`../docs/PHP-7.2-STALE-STATE.md`](../docs/PHP-7.2-STALE-STATE.md)에 있습니다.
+이 상태는 해당 branch의 취약성 여부를 부정하거나 공개된 PHP 5.4+ 연구 범위를
+축소하는 결론이 아닙니다.
 
 framework와 profile 형식의 상세 설명은
 [`multiversion/FRAMEWORK.md`](multiversion/FRAMEWORK.md), 지원 경계는
 [`multiversion/SUPPORT.md`](multiversion/SUPPORT.md)에 있습니다.
+
+## PHP 7.3.33 / 7.4.33 / 8.0.30 / 8.1.34 locally calibrated RCE labs
+
+[`legacy-calibrated-rce/run-local-docker-lab.sh`](legacy-calibrated-rce/run-local-docker-lab.sh)는
+네 exact official Apache image에서 실제 `uid=33(www-data)` proof까지 확인한
+no-argument runner입니다.
+
+| Exact build | terminal primitive | 확인 결과 |
+|---|---|---|
+| PHP 7.3.33 | raw-key partial `Bucket` → fake `HashTable` → libc `system()` | 3/3 fresh 개발 실행 |
+| PHP 7.4.33 | raw-key partial `Bucket` → fake `HashTable` → libc `system()` | 개발 3회 + 게시용 runner 재현 |
+| PHP 8.0.30 | raw-key partial `Bucket` → fake `HashTable` → libc `system()` | 3/3 fresh 개발 실행 |
+| PHP 8.1.34 | stale `zend_reference` → fake `HashTable` → `zif_passthru` | 개발 3회 + 게시용 runner 반복 재현 |
+
+```bash
+sudo ./poc/legacy-calibrated-rce/run-local-docker-lab.sh
+```
+
+이 runner는 target/command를 고정하고 새 internal network만 사용하지만, 주소는
+HTTP로 누출하지 않습니다. 로컬 root의 `/proc/<worker>/maps`와
+`/proc/<worker>/mem`으로 ASLR 값을 보정합니다. 따라서 구버전 RCE primitive의
+검증기이며 standalone remote exploit가 아닙니다. 특히 PHP 8.1에서는 독립적인
+pure-HTTP ASLR leak을 확인하지 못했습니다. PHP 7.3은 공식 EOL 완화가 제공된
+7.4/8.0/8.1과 달리 upstream backport가 없습니다. 자세한 구현과 한계는
+[`legacy-calibrated-rce/README.md`](legacy-calibrated-rce/README.md)에 있습니다.
 
 ## PHP 5.4–8.1 benign scope probe
 

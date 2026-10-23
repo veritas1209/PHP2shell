@@ -44,8 +44,12 @@ These mitigations intentionally differ from the maintained-branch patch. They
 fail closed on OOM and disable the upload-progress callback rather than
 backporting the complete delayed-OOM and safe session lifecycle. Their
 existence is strong evidence that the technical issue also matters on those
-EOL lines, but it does not add them to the CNA matrix or establish a runnable
-profile in this repository.
+EOL lines, but it does not add them to the CNA matrix. This repository now has
+locally `/proc`-calibrated terminal RCE labs for exact PHP 7.3.33, 7.4.33,
+8.0.30, and 8.1.34 images. Those labs are a different evidence class from the
+standalone HTTP profiles because they do not disclose ASLR addresses over the
+network. PHP 7.3 has no corresponding official php-src backport because it was
+outside both the maintained CNA matrix and the EOL mitigation set.
 
 ## 3. Research-confirmed lineage reaches PHP 5.4
 
@@ -85,14 +89,27 @@ builds to update. It is tracked separately from the stable CVE matrix.
 
 ## 5. Scope of this repository's PoC
 
-Runnable support here remains **exact-build support**. The four verified
+Runnable support here remains **exact-build support**. Four standalone HTTP
 profiles cover PHP 8.2.34, 8.3.35, 8.4.26, and 8.5.11 on fingerprinted Apache
-images and runtimes. A proof on one image establishes the chain only for that
-image, SAPI, configuration, and heap recipe; it must not be generalized to all
-releases in the branch.
+images and runtimes. Separate locally calibrated labs reach fixed-command RCE
+on exact PHP 7.3.33, 7.4.33, 8.0.30, and 8.1.34 images after reading target
+process addresses from local `/proc`. PHP 7.3/7.4/8.0 use a raw-key partial
+`Bucket` path; PHP 8.1 uses a distinct stale-session `zend_reference` path. A
+proof on one image establishes the chain only for that image, SAPI,
+configuration, and heap recipe; it must not be generalized to all releases in
+the branch.
 
 Conversely, the absence of a runnable profile is not an “unaffected” result.
-For example, the current disclosure recipe did not port directly to the tested
-PHP 8.1.34 and 7.2.34 images, even though the official EOL mitigations and the
-research record show that the broader technical scope extends beyond the four
-runnable profiles.
+For example, the standalone disclosure recipe did not port directly to the
+tested PHP 8.1.34 and 7.2.34 images. PHP 8.1.34 nevertheless reached the
+terminal chain once the two runtime bases were supplied locally; no usable
+pure-HTTP ASLR disclosure was found for that lab. PHP 5.4–7.2 still have no
+end-to-end RCE runner here. PHP 7.2.34 is no longer only a benign-surface
+observation: a bounded investigation reproduced a pre-RINIT OOM dangling
+`zend_reference` across requests in 8/8 fresh containers at Zend MM chunk
+`+0x6a018`. Its refcount only fell from 2 to 1, the tested inputs did not
+reclaim the 24-byte reference, and no destructor or command proof occurred.
+PHP 5.4–7.1 remain benign-surface-only observations in this repository. See
+[`PHP-7.2-STALE-STATE.md`](PHP-7.2-STALE-STATE.md). The official EOL mitigations
+and research record show that the broader technical scope extends beyond the
+bundled profiles.

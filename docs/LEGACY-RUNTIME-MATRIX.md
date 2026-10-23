@@ -47,7 +47,19 @@ proof would also need a useful interruption/OOM producer, stale state that
 survives request-heap teardown, a later consumer, a memory disclosure, and a
 controlled terminal primitive on the exact build.
 
-## Why the current RCE profile stops on legacy builds
+Separate later experiments did reach locally calibrated terminal RCE on exact
+PHP 7.3.33, 7.4.33, 8.0.30, and 8.1.34 images. Those results are documented in
+[`LEGACY-RCE-VALIDATION.md`](LEGACY-RCE-VALIDATION.md) and do not change what
+this benign matrix itself establishes.
+
+PHP 7.2.34 also received a separate bounded investigation. It reproduced a
+pre-RINIT OOM dangling `zend_reference` across requests in 8/8 fresh
+containers at Zend MM chunk `+0x6a018`, but refcount 2 fell only to 1 and the
+tested HTTP inputs did not reclaim the 24-byte reference. No destructor or
+command proof occurred. See
+[`PHP-7.2-STALE-STATE.md`](PHP-7.2-STALE-STATE.md).
+
+## Why the standalone HTTP profile stops on legacy builds
 
 The public PHP 8.3–8.5 chains and this repository's PHP 8.2 port obtain their
 first address disclosure by making stale Session ID storage reach
@@ -57,13 +69,23 @@ logic clears `PS(send_cookie)` unconditionally, while the newer path used by
 the public chain returns early on cookie-send failure and preserves it.
 Changing symbol offsets or filler counts cannot replace that missing consumer.
 
-The remaining work also crosses ABI families:
+The PHP 7.2 bounded investigation found a different pre-RINIT OOM producer and
+confirmed that the next request consumes stale session state. It still stops
+before a terminal primitive: `zval_ptr_dtor()` changes the stale reference's
+refcount from 2 to 1 without dispatching a destructor, and tested inputs do not
+reclaim its 24-byte allocation. Source inspection also shows that PHP 7.2
+allocates the key before incrementing `nNumUsed`; the partial-`Bucket` producer
+used on PHP 7.3+ is therefore absent.
 
-- PHP 8.0/8.1 can reuse much of the PHP 8 fake-object layout after a new
-  disclosure and fresh heap calibration are found.
+Porting a standalone HTTP chain still crosses ABI families:
+
+- The locally calibrated PHP 8.0 raw-key lab and PHP 8.1 stale-session lab
+  prove their terminal primitives, but neither supplies addresses through a
+  pure-HTTP disclosure.
 - PHP 7 needs version-aware type flags, reference sizes, and HashTable
-  semantics. For example, the measured PHP 7.2 `IS_ARRAY_EX` is `0x1407` and
-  its `zend_reference` is 24 bytes, versus `0x307` and 32 bytes on PHP 8.
+  semantics. The raw-key partial-`Bucket` geometry was validated on exact PHP
+  7.3.33 and 7.4.33 images. PHP 7.2 has a confirmed stale-state primitive but
+  remains unverified for end-to-end RCE.
 - PHP 5 uses Zend Engine 2 zvals, pointer-based HashTables, a different
   allocator, and a different internal-function ABI. It requires a separate
   payload encoder and exploit strategy.
@@ -71,8 +93,11 @@ The remaining work also crosses ABI families:
 The Calif and Wiz teams report successful paths reaching PHP 5.4 but did not
 publish those legacy full-chain implementations. The public full-core RCE
 implementations reviewed for this repository are centered on PHP 8.3–8.5.
-Accordingly, no legacy build is added to the RCE allow-list on the strength of
-this surface probe.
+The benign probe alone adds no build to an RCE allow-list. The four successful
+legacy labs required their own OOM/stale-session path, heap geometry, terminal
+payload and local `/proc` address calibration. PHP 5.4–7.2 remain unverified
+for end-to-end RCE in this repository; within that range, PHP 7.2 has the
+stronger stale-state result while PHP 5.4–7.1 remain benign-surface-only.
 
 ## Source and image caveat for PHP 5.4
 
@@ -91,8 +116,12 @@ official PHP or Docker build.
 - **Official EOL source mitigations:** PHP 7.4, 8.0, and 8.1.
 - **Research-confirmed technical history:** version- and SAPI-dependent paths
   reach PHP 5.4.0.
-- **This repository's verified RCE profiles:** four exact PHP 8.2–8.5 Apache
-  images only.
+- **This repository's standalone HTTP RCE profiles:** four exact PHP 8.2–8.5
+  Apache images.
+- **This repository's locally calibrated RCE labs:** exact PHP 7.3.33,
+  7.4.33, 8.0.30, and 8.1.34 Apache images; addresses supplied from local
+  `/proc`, with no remote ASLR-bypass claim.
+- **This repository's PHP 7.2 bounded result:** cross-request stale
+  `zend_reference` confirmed 8/8, with destructor and command proof absent.
 - **This legacy experiment:** the pre-script upload-progress surface on ten
   exact PHP 5.4–8.1 Apache images, without an RCE claim.
-

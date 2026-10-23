@@ -45,18 +45,30 @@ else
 fi
 readonly DOCKER_BIN
 
-context_name="$("$DOCKER_BIN" context show 2>/dev/null)" || {
-    echo "cannot determine the Docker context" >&2
-    exit 1
-}
-context_endpoint="$(
-    "$DOCKER_BIN" context inspect "$context_name" \
-        --format '{{.Endpoints.docker.Host}}' 2>/dev/null
-)" || {
-    echo "cannot inspect Docker context: $context_name" >&2
-    exit 1
-}
-effective_endpoint="${DOCKER_HOST:-$context_endpoint}"
+if [[ -n "${DOCKER_CONTEXT:-}" ]]; then
+    context_name="$DOCKER_CONTEXT"
+    context_endpoint="$(
+        "$DOCKER_BIN" context inspect "$context_name" \
+            --format '{{.Endpoints.docker.Host}}' 2>/dev/null
+    )" || {
+        echo "cannot inspect Docker context: $context_name" >&2
+        exit 1
+    }
+    effective_endpoint="$context_endpoint"
+else
+    context_name="$("$DOCKER_BIN" context show 2>/dev/null)" || {
+        echo "cannot determine the Docker context" >&2
+        exit 1
+    }
+    context_endpoint="$(
+        "$DOCKER_BIN" context inspect "$context_name" \
+            --format '{{.Endpoints.docker.Host}}' 2>/dev/null
+    )" || {
+        echo "cannot inspect Docker context: $context_name" >&2
+        exit 1
+    }
+    effective_endpoint="${DOCKER_HOST:-$context_endpoint}"
+fi
 case "$effective_endpoint" in
     unix://*) ;;
     *)
