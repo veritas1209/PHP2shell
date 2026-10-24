@@ -198,7 +198,7 @@ terminal primitive가 실제로 동작했다는 실험 증거다.
 성공 여부와 무관하게 유지보수되는 수정 릴리스로 업그레이드하거나 배포판/LTS
 공급자의 검증된 backport를 적용해야 한다.
 
-## PHP 7.2.34의 중간 결과와 더 오래된 범위
+## PHP 7.2.34의 초기 중간 결과와 후속 HTTP-only 검증
 
 PHP 7.2.34 exact image
 `php@sha256:4dc0f0115acf8c2f0df69295ae822e49f5ad5fe849725847f15aa0e5802b55f8`
@@ -207,18 +207,20 @@ PHP 7.2.34 exact image
 남는 것을 확인했다. fresh-ASLR 실행 8회 모두 위치는 Zend MM chunk
 `+0x6a018`이었다.
 
-그러나 reference의 refcount가 2여서 consumer는 이를 `2 → 1`로만 낮췄고
+이 초기 실험에서 reference의 refcount가 2여서 consumer는 이를 `2 → 1`로만 낮췄고
 destructor를 호출하지 않았다. 또한 PHP 7.2의 24-byte `zend_reference` slot을
 시험한 HTTP-controlled allocation으로 reclaim하지 못했다. 7.3+ raw-key producer도
 PHP 7.2에서는 key allocation이 `nNumUsed` 증가보다 먼저 일어나므로 이식되지
-않는다. command proof는 생성되지 않았으며 RCE로 분류하지 않는다. 상세 근거는
+않는다. 이 경로에서는 command proof가 생성되지 않았으며 RCE로 분류하지 않는다. 상세 근거는
 [`PHP-7.2-STALE-STATE.md`](PHP-7.2-STALE-STATE.md)에 있다.
 
-별도 benign probe는 PHP 5.4.45–7.1.33에서도 application script 전
-`session.upload_progress` callback이 실행되는 선행 표면만 확인했다. PHP
-5.4–7.1에는 cross-request stale state, 주소 disclosure, terminal primitive 또는
-RCE 성공 증거가 없다. 이 저장소에서 PHP 5.4–7.2의 end-to-end RCE는 현재
-검증되지 않았다.
+후속 연구에서는 서로 다른 version-specific consumer와 HTTP disclosure를 사용해
+PHP 5.4.45–7.4.33 여덟 exact build 모두에서 고정 `id>/out/p` proof까지 도달했다.
+그 최종 source, runner와 fresh 검증 횟수는
+[`../poc/legacy-http-rce/`](../poc/legacy-http-rce/)에 있다. PHP 5.4–5.6은
+application endpoint가 영향을 받은 POST 값을 worker 종료 전에 binary-safe로
+반사해야 한다. 이 후속 결과는 초기 PHP 7.2 경로가 당시 멈춘 지점을 바꾸지
+않으며, PHP CNA가 열거한 공식 8.2–8.5 범위를 확장하는 주장도 아니다.
 
 ## 공개 증거
 

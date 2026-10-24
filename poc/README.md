@@ -76,19 +76,33 @@ worker가 정상 응답 없이 종료돼도 새 `/out` volume의 고정 proof로
 [`../docs/PHP-8.0-HTTP-RCE-VALIDATION.md`](../docs/PHP-8.0-HTTP-RCE-VALIDATION.md)에
 있습니다.
 
-PHP 7.3.33, 7.4.33, 8.0.30과 PHP 8.1.34의 historical 로컬 보정형 terminal RCE
-lab은 아래에 있습니다. PHP 7.2.34에서는 pre-RINIT OOM 뒤 request 간 stale
-`zend_reference`를 8/8 fresh 실행에서 확인했지만, refcount와 24-byte reclaim
-조건을 넘지 못해 destructor와 proof가 발생하지 않았습니다. PHP 5.4–7.1은 benign
-선행 표면만 확인했으며, PHP 5.4–7.2의 end-to-end RCE는 아직 검증되지 않았습니다.
-자세한 7.2 경계는
-[`../docs/PHP-7.2-STALE-STATE.md`](../docs/PHP-7.2-STALE-STATE.md)에 있습니다.
-이 상태는 해당 branch의 취약성 여부를 부정하거나 공개된 PHP 5.4+ 연구 범위를
-축소하는 결론이 아닙니다.
+PHP 5.4.45–7.4.33의 여덟 exact build에서도 주소를 HTTP 응답에서 얻는 최종
+chain을 검증했습니다. PHP 5.4–5.6은 영향을 받은 POST 값을 worker 종료 전에
+binary-safe로 반사하는 application endpoint가 필요합니다. 이 결과는 CNA가
+열거한 8.2–8.5 공식 범위를 확장하는 선언이 아니라 historical exact build의
+기술적 증거입니다.
 
 framework와 profile 형식의 상세 설명은
 [`multiversion/FRAMEWORK.md`](multiversion/FRAMEWORK.md), 지원 경계는
 [`multiversion/SUPPORT.md`](multiversion/SUPPORT.md)에 있습니다.
+
+## PHP 5.4.45–7.4.33 HTTP-only exact-build labs
+
+[`legacy-http-rce/run-local-docker-lab.sh`](legacy-http-rce/run-local-docker-lab.sh)는
+여덟 legacy profile을 allow-list로 제한해 실행합니다. 각 profile은 fresh
+Docker-internal network, 미공개 host port, immutable image 검증, 고정
+`id>/out/p` proof를 사용합니다. 저장된 final path에는 GDB, ptrace,
+`LD_PRELOAD`, `/proc/*/maps` 또는 `/proc/*/mem` 주소 입력이 없습니다.
+
+```bash
+./poc/legacy-http-rce/run-local-docker-lab.sh
+```
+
+개별 결과와 application 전제는
+[`legacy-http-rce/README.md`](legacy-http-rce/README.md), exact image와 fresh-ASLR
+횟수는 [`legacy-http-rce/VALIDATION.md`](legacy-http-rce/VALIDATION.md)에 있습니다.
+초기 PHP 7.2 stale-state 미도달 기록은 개발 과정 자료로 남아 있으며 새 final
+chain이 이를 대체합니다.
 
 ## PHP 7.3.33 / 7.4.33 / 8.0.30 / 8.1.34 locally calibrated RCE labs
 

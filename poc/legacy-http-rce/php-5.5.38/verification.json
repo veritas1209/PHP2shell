@@ -1,0 +1,70 @@
+{
+  "profile": "php55-mbstring-http-rce",
+  "fresh_aslr_runs": [
+    {
+      "label": "fresh-aslr-1",
+      "http_pointer": "0x7d46af77eb20",
+      "libphp_base": "0x7d46aeb33000",
+      "system": "0x7d46b255e490",
+      "stale_zval": "0x7d46b33033c0",
+      "carrier": "0x7d46b3303498",
+      "checks": {
+        "proof_uid33": true,
+        "image_id": true,
+        "no_ports": true,
+        "internal_network": true,
+        "no_ld_preload": true,
+        "page_aligned": true,
+        "symbol_relation": true,
+        "system_relation": true,
+        "stale_relation": true,
+        "carrier_relation": true,
+        "http_only_flags": true
+      }
+    },
+    {
+      "label": "fresh-aslr-2",
+      "http_pointer": "0x7a448e69cb20",
+      "libphp_base": "0x7a448da51000",
+      "system": "0x7a449147c490",
+      "stale_zval": "0x7a44922213c0",
+      "carrier": "0x7a4492221498",
+      "checks": {
+        "proof_uid33": true,
+        "image_id": true,
+        "no_ports": true,
+        "internal_network": true,
+        "no_ld_preload": true,
+        "page_aligned": true,
+        "symbol_relation": true,
+        "system_relation": true,
+        "stale_relation": true,
+        "carrier_relation": true,
+        "http_only_flags": true
+      }
+    },
+    {
+      "label": "fresh-aslr-3",
+      "http_pointer": "0x749d4ddafb20",
+      "libphp_base": "0x749d4d164000",
+      "system": "0x749d50b8f490",
+      "stale_zval": "0x749d519343c0",
+      "carrier": "0x749d51934498",
+      "checks": {
+        "proof_uid33": true,
+        "image_id": true,
+        "no_ports": true,
+        "internal_network": true,
+        "no_ld_preload": true,
+        "page_aligned": true,
+        "symbol_relation": true,
+        "system_relation": true,
+        "stale_relation": true,
+        "carrier_relation": true,
+        "http_only_flags": true
+      }
+    }
+  ],
+  "distinct_libphp_bases": true,
+  "all_checks": true
+}

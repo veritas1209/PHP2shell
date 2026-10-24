@@ -12,28 +12,26 @@
 공개 범위에는 다음 자료가 포함됩니다.
 
 - 공식 PHP advisory, patch와 수정 릴리스 링크
-- 격리된 WSL2 Docker lab에서 얻은 PHP 8.1.34, 8.2.34, 8.3.35, 8.4.26,
-  8.5.11 exact-build 결과
+- 격리된 WSL2 Docker lab에서 얻은 PHP 8.0.30, 8.1.34, 8.2.34, 8.3.35,
+  8.4.26, 8.5.11 exact-build 결과
 - PHP 8.2.35, 8.3.36, 8.4.27, 8.5.12 fixed-build 대조 결과
 - `id>/out/p`로 고정한 `www-data` 권한 proof
 - image digest/ID, `libphp` hash/build ID, runtime과 heap calibration을 묶은 profile
 - 외부 target이나 임의 명령을 받지 않는 local-only multi-version runner
 - PHP 8.1.34의 FILE_START/trans-SID HTTP-only 주소 누출과 3/3 fresh 고정 명령 proof
+- PHP 5.4.45–7.4.33 여덟 exact build의 HTTP-only 고정 명령 proof, 고정 image와
+  version-specific runtime configuration
 - PHP 7.3.33/7.4.33/8.0.30 및 historical PHP 8.1.34 lab에서 local `/proc` 주소 보정 뒤 고정 명령의
   terminal RCE에 도달한 exact-build 실험기와 그 한계
-- PHP 7.2에 standalone HTTP disclosure/terminal chain을 포팅하지 못한 구조적 이유
-- PHP 7.2.34에서 8회 반복 확인한 request 간 stale `zend_reference`, 두 terminal
-  blocker와 proof 부재를 정리한 bounded no-RCE 조사 결과
+- PHP 7.2.34의 초기 stale `zend_reference` 경로에서 확인한 blocker와, 이후 다른
+  HTTP-only chain으로 3/3 proof에 도달한 결과의 구분
 
-마지막 항목은 해당 버전이 안전하거나 취약하지 않다는 결론이 아닙니다. 네
-historical legacy build는 별도 terminal chain으로 실제 명령 실행까지 확인했지만
-주소는 로컬 process memory에서 공급했습니다. PHP 8.1의 새 128 MiB profile은
-이와 다른 producer를 사용해 두 주소를 HTTP 응답에서 복원했으며, 그 범위는 exact
-image와 runtime으로 한정합니다. PHP 5.4–7.2의 end-to-end RCE는 이
-저장소에서 확인되지 않았습니다. PHP 7.2는 benign 표면을 넘어 stale-state
-primitive까지 확인했지만 destructor나 command execution에는 도달하지 않았고,
-PHP 5.4–7.1은 benign 선행 표면만 확인했습니다. PHP 7.3은 공식 php-src
-backport가 없는 EOL branch라는 점도 별도로 명시합니다.
+PHP 5.4–7.4 결과는 exact image와 runtime에 한정한 기술 연구 증거입니다. PHP
+5.4–5.6의 주소 누출은 영향을 받은 POST 값을 worker 종료 전에 binary-safe로
+반사하는 application endpoint를 전제로 합니다. 이는 PHP CNA가 열거한 공식
+8.2–8.5 범위를 넓히거나 EOL branch에 공식 php-src backport가 존재한다고
+주장하는 자료가 아닙니다. historical `/proc` 보정형 lab과 초기 no-RCE 개발
+기록은 후속 HTTP-only profile의 입력이 아니라 독립적인 연구 이력으로 보존합니다.
 
 다음 자료는 공개 대상에서 제외했습니다.
 
@@ -46,7 +44,7 @@ backport가 없는 EOL branch라는 점도 별도로 명시합니다.
 ## 실행 범위 제한
 
 권장 runner `poc/multiversion/run-local-docker-lab.sh`는 command-line 인자를 받지
-않고, bundled allow-list에 있는 다섯 exact profile만 실행합니다. 대상과 attacker
+않고, bundled allow-list에 있는 여섯 exact profile만 실행합니다. 대상과 attacker
 image는 immutable digest로 고정합니다. runner는 매 실행마다 새 internal Docker
 network와 proof volume을 만들고 host port를 공개하지 않습니다. live container의
 fingerprint를 profile과 대조한 뒤 고정 명령 `id>/out/p`만 사용하고, 실행 후

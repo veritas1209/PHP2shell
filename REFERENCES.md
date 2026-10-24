@@ -27,9 +27,10 @@
   that at least one relevant path affects PHP releases back to 5.4
 
 These research findings describe technical lineage and exploit paths. They are
-broader than the maintained PHP 8.2–8.5 branches enumerated by the PHP CNA and
-broader than this repository's five standalone HTTP profiles. This repository
-also contains locally `/proc`-calibrated terminal RCE labs for exact PHP
+broader than the maintained PHP 8.2–8.5 branches enumerated by the PHP CNA. This
+repository publishes six `poc/multiversion` profiles and eight separate legacy
+HTTP-only exact-build profiles. It also retains locally `/proc`-calibrated
+terminal RCE labs for exact PHP
 7.3.33, 7.4.33, 8.0.30, and 8.1.34 builds, which are documented as a separate
 evidence class. See
 [`docs/AFFECTED-SCOPE.md`](docs/AFFECTED-SCOPE.md).
@@ -40,9 +41,10 @@ retained as historical terminal-primitive evidence.
 ## Historical PHP 5.4 lab image
 
 - [`eugenesia/docker-library-php`](https://github.com/eugenesia/docker-library-php)
-  supplies the source for the digest-pinned PHP 5.4.45 Apache image used only
-  by the benign legacy scope probe. It is derived from the historical official
-  image but is not represented here as a PHP or Docker official build.
+  supplies the source for the digest-pinned PHP 5.4.45 Apache image used by the
+  benign legacy scope probe and the exact-build HTTP-only lab. It is derived
+  from the historical official image but is not represented here as a PHP or
+  Docker official build.
 
 ## Licensed source adapted by the PoC frameworks
 
@@ -65,21 +67,32 @@ These three repositories reported no detected license in GitHub's repository
 metadata when checked on 2026-10-23. Their complete source trees are referenced
 rather than redistributed here.
 
-The exact PHP 7.2 bounded result and its no-RCE boundary are documented in
-[`docs/PHP-7.2-STALE-STATE.md`](docs/PHP-7.2-STALE-STATE.md).
+The exact PHP 7.2 bounded result and its no-RCE boundary for that earlier route
+are documented in
+[`docs/PHP-7.2-STALE-STATE.md`](docs/PHP-7.2-STALE-STATE.md). A later, separate
+HTTP-only chain produced 3/3 fixed-command proofs; its final source and report
+are under [`poc/legacy-http-rce/php-7.2.34`](poc/legacy-http-rce/php-7.2.34/).
 
 ## Exact Docker image identity
 
 The standalone profiles, locally calibrated labs, and bounded PHP 7.2
-investigation use the following exact official PHP Apache `linux/amd64`
-images. A PHP version string alone is not sufficient.
+investigation use the following exact Apache `linux/amd64` images. All are
+official PHP images except the explicitly marked archival PHP 5.4 build. A PHP
+version string alone is not sufficient. The PHP 5.4–5.6 HTTP disclosures also
+require the bundled application-style POST reflection sink described in their
+per-version reports.
 
 | Role | Version | Repo/index digest | Image/config ID |
 |---|---|---|---|
-| Stale-state confirmed, no RCE | 7.2.34 | `sha256:4dc0f0115acf8c2f0df69295ae822e49f5ad5fe849725847f15aa0e5802b55f8` | `sha256:c61d277263e19d2ce30a6bae41115c811eb0f9274a601a5e3ee621e54c8a74f7` |
-| Locally calibrated proof | 7.3.33 | `sha256:b9872cd287ef72bc17d45d713aa2742f3d3bcf2503fea2506fd93aa94995219f` | `sha256:35da9118b3c0980fbaf84a4d410653642c9d55fb2f6c40011cc78de303837d64` |
-| Locally calibrated proof | 7.4.33 | `sha256:c9d7e608f73832673479770d66aacc8100011ec751d1905ff63fae3fe2e0ca6d` | `sha256:20a3732f422b7b28dcf99e8597f093a8c135efca62ff0dc02a2d92d916369413` |
-| Locally calibrated proof | 8.0.30 | `sha256:c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2` | `sha256:3357132d6ece3a509ce6f8abf6e7cf9886b343c504cb58428a7302cbe7abe446` |
+| Verified legacy HTTP proof; third-party archival image | 5.4.45 | `sha256:5681afdd0e07c7cbbece3f9cde77e5b7281768f54e1a2bbba319833c1ef638a9` | `sha256:7cb054df8a5024e6fb9b2aba29568ec588103b0a56e67eff18cf02c9e62c0ea6` |
+| Verified legacy HTTP proof | 5.5.38 | `sha256:be7f9332d3bea49084d74a0718a5400f7b5d128c1937575e76f72df3a41e8eac` | `sha256:ea0a3d41ce6c99e1b96c335f3a9e616ecae62f1fabfdfdede51bb66b506d14ee` |
+| Verified legacy HTTP proof | 5.6.40 | `sha256:0a40fd273961b99d8afe69a61a68c73c04bc0caa9de384d3b2dd9e7986eec86d` | `sha256:24c791995c1e498255393db857040793a7a040fa0f8ddd4bbe8fb230648e37d7` |
+| Verified legacy HTTP proof | 7.0.33 | `sha256:1d34b2e491a02ba7a8d26478132015e197a5ffea37f0a93b42621d11cfe042cc` | `sha256:aa67a9c9814fb920a3aa01122b56010ddf1130710caf71a8871a0f1dbb4d78fd` |
+| Verified legacy HTTP proof | 7.1.33 | `sha256:70eefcf4372b279101259e905996b7733a87688d0b48625af01b55947836bb1f` | `sha256:b9858ffdd4d259fe208b6e5e4ae08f90c815dda98a7a8a45f3bf147485afaf4c` |
+| Verified legacy HTTP proof; historical bounded route retained | 7.2.34 | `sha256:4dc0f0115acf8c2f0df69295ae822e49f5ad5fe849725847f15aa0e5802b55f8` | `sha256:c61d277263e19d2ce30a6bae41115c811eb0f9274a601a5e3ee621e54c8a74f7` |
+| Verified legacy HTTP proof; historical locally calibrated proof | 7.3.33 | `sha256:b9872cd287ef72bc17d45d713aa2742f3d3bcf2503fea2506fd93aa94995219f` | `sha256:35da9118b3c0980fbaf84a4d410653642c9d55fb2f6c40011cc78de303837d64` |
+| Verified legacy HTTP proof; historical locally calibrated proof | 7.4.33 | `sha256:c9d7e608f73832673479770d66aacc8100011ec751d1905ff63fae3fe2e0ca6d` | `sha256:20a3732f422b7b28dcf99e8597f093a8c135efca62ff0dc02a2d92d916369413` |
+| Verified HTTP proof; historical locally calibrated proof | 8.0.30 | `sha256:c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2` | `sha256:3357132d6ece3a509ce6f8abf6e7cf9886b343c504cb58428a7302cbe7abe446` |
 | Verified HTTP proof; historical locally calibrated proof | 8.1.34 | `sha256:72f0c0134922985022d55a39b0390d35dc7a10e961aa6c44fa35b4c3102f4268` | `sha256:e6c924c6e862e6c74e01be964f88cb0c7ccbd673925e9a648cbbf77ff53b7ca1` |
 | Verified proof | 8.2.34 | `sha256:1650dcb528360aad05d6ed2f83cb403a2a39c31bd14552efd9a747b2207dea86` | `sha256:f380b054d6364b80f0952a9198e5dc1e1ab4d809aad24d3f3174f059e863f48a` |
 | Fixed control | 8.2.35 | `sha256:fa8966fbaaa06981e549e7a33eb8a68f4cf677d6a82e1d6350adc5d85fe8f740` | `sha256:745174152c4e5ddc9854adea24a2c408129c27384010e29b31303e1b50e3caae` |

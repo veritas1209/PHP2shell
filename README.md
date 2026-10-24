@@ -2,15 +2,13 @@
 
 WSL2의 격리된 Docker 환경에서 PHP의 OOM bailout 및 stale request-global state
 취약점을 공식 패치 전후 빌드로 비교한 보안 연구 자료입니다. 공개 full-chain
-기법을 exact-build profile로 제한해 PHP 8.0.30, 8.1.34, 8.2.34, 8.3.35,
-8.4.26, 8.5.11에서
-`www-data` 권한의 명령 실행을 확인했습니다. PHP 8.2–8.5의 대응 수정 릴리스에서는
-같은 재현 절차가 disclosure 단계에서 중단됐고, PHP 8.0과 8.1에는 공식 EOL source
-mitigation이 있습니다. PHP 8.0.30과 8.1.34 profile은 서로 다른 exact geometry의
-trans-SID 응답에서 heap과 `libphp` 주소를 얻는 HTTP-only chain입니다. 구버전
-연구에서는 PHP 7.3.33, 7.4.33과 PHP 8.0.30/8.1.34의 historical terminal RCE
-primitive도 확인했으며, 이들은 주소를 로컬 `/proc`에서 보정하는 별도 격리
-실험기로 구분해 제공합니다.
+기법과 추가로 확인한 legacy 경로를 exact-build profile로 제한해 아래 표에 나열한
+14개 build에서 `www-data` 권한의 고정 proof 명령 실행을 확인했습니다. PHP
+8.2–8.5의 대응 수정 릴리스에서는 같은 재현 절차가
+disclosure 단계에서 중단됐고, PHP 7.4, 8.0과 8.1에는 공식 EOL source mitigation이
+있습니다. 게시된 최종 profile은 주소를 HTTP 응답에서 얻습니다. PHP 5.4–5.6은
+영향을 받은 POST 값을 binary-safe로 응답하는 application endpoint가 추가로
+필요합니다.
 
 > [!CAUTION]
 > **보안 연구·교육·방어 검증 목적으로만 사용하세요.** 이 저장소의 자료와 PoC는
@@ -34,20 +32,19 @@ primitive도 확인했으며, 이들은 주소를 로컬 `/proc`에서 보정하
 확인했다고 보고했습니다. PHP 5.4–7.3은 CNA 열거와 공식 php-src backport가
 없으므로, 연구 결과에 따른 기술적 영향과 공식 제품 범위를 구분해야 합니다.
 
-이 저장소의 실행기는 두 등급으로 나뉩니다. PHP 8.0.30, 8.1.34와
-8.2.34–8.5.11의 여섯 build는 HTTP chain 자체가 주소를 확보하는 exact
-profile이고, PHP 7.3.33과 7.4.33은 로컬 `/proc` 주소 보정 뒤 terminal chain을
-실행하는 exact legacy lab입니다. 먼저 primitive를 확인한 PHP 8.0.30/8.1.34의
-보정형 lab도 개발 이력과 독립 증거로 보존합니다. 어느 쪽도 profile이 없는 버전을 안전하다고
-판정하지 않습니다. 공식 범위, EOL 완화,
-연구진이 확인한 PHP 5.4+ 계보의 차이는
+PHP 8.0.30, 8.1.34, 8.2.34, 8.3.35, 8.4.26, 8.5.11과 PHP 5.4.45,
+5.5.38, 5.6.40, 7.0.33, 7.1.33, 7.2.34, 7.3.33, 7.4.33은 최종 chain 자체가
+HTTP 응답에서 주소를 확보하는 exact profile입니다. 과거의
+로컬 보정형 lab은 개발 이력과 독립 증거로 별도 보존하지만 새 legacy HTTP
+runner의 입력은 아닙니다. 어느 쪽도 profile이 없는 버전을 안전하다고 판정하지
+않습니다. 공식 범위, EOL 완화, 연구진이 확인한 PHP 5.4+ 계보의 차이는
 [버전 범위 문서](docs/AFFECTED-SCOPE.md)에 정리했습니다.
 
 ## 검증 결과
 
-이 결과는 버전 계열 전체에 대한 지원 선언이 아닙니다. 아래에 적은 공식
-`linux/amd64` Apache image digest, image ID, `libphp` hash/build ID, runtime 설정과
-heap calibration이 일치하는 여섯 build만 standalone HTTP profile로 제공합니다.
+이 결과는 버전 계열 전체에 대한 지원 선언이 아닙니다. 기록된 `linux/amd64`
+Apache image digest, image ID, binary hash/build ID, runtime 설정과 heap geometry가
+일치하는 exact build만 HTTP profile로 제공합니다.
 
 | 취약 빌드 | 로컬 proof | 수정 빌드 대조군 | 동일 체인 결과 |
 |---|---|---|---|
@@ -70,25 +67,23 @@ profile 모두 B1 HTTP 응답에서 Zend MM main chunk와 `libphp` base를 구�
 target process memory를 읽지 않습니다. PHP 8.0의 4 MiB leak과 PHP 8.1의
 1.75 MiB leak은 서로 바꿔 쓸 수 없는 별도 heap geometry입니다.
 
-구버전 terminal chain의 별도 검증 결과는 다음과 같습니다.
+구버전 exact-build HTTP chain의 별도 검증 결과는 다음과 같습니다.
 
-| 취약 빌드 | RCE primitive | fresh proof | 주소 보정 | 원격 ASLR 우회 |
-|---|---|---:|---|---|
-| PHP 7.3.33 | partial `Bucket` → fake `HashTable` → libc `system()` | 개발 3/3 fresh 실행 | 로컬 `/proc`의 heap/libc | 미검증 |
-| PHP 7.4.33 | partial `Bucket` → fake `HashTable` → libc `system()` | 개발 3회 + 게시용 runner 재현 | 로컬 `/proc`의 heap/libc | 미검증 |
-| PHP 8.0.30 (historical lab) | partial `Bucket` → fake `HashTable` → libc `system()` | 개발 3/3 fresh 실행 | 로컬 `/proc`의 heap/libc | 새 108M HTTP profile에서 3/3 검증 |
-| PHP 8.1.34 (historical 8M lab) | stale `zend_reference` → fake `HashTable` → `zif_passthru` | 개발 3회 + 게시용 runner 반복 재현 | 로컬 `/proc`의 libphp/Zend MM | 새 128M HTTP profile에서 3/3 검증 |
+| 취약 빌드 | fresh HTTP-only proof | 주소원 | 공식 CVE 범위 주장 |
+|---|---:|---|---|
+| PHP 7.4.33 | 3/3 | 4 MiB trans-SID 응답 | 아니요 |
+| PHP 7.3.33 | 3/3 | 4 MiB trans-SID 응답 | 아니요 |
+| PHP 7.2.34 | 3/3 | 4 MiB trans-SID 응답 | 아니요 |
+| PHP 7.1.33 | 3/3 | 4 MiB trans-SID 응답 | 아니요 |
+| PHP 7.0.33 | 4/4 | 1 MiB `Set-Cookie` 응답 | 아니요 |
+| PHP 5.6.40 | 3/3 | POST reflection의 mbstring symbol pointer | 아니요 |
+| PHP 5.5.38 | 3/3 | POST reflection의 mbstring symbol pointer | 아니요 |
+| PHP 5.4.45 | 3/3 + 독립 audit 2/2 | POST reflection의 mbstring symbol pointer | 아니요 |
 
-네 historical lab도 ptrace/GDB 없이 고정 `id>/out/p` proof를 만들지만, 로컬
-root가 주소값을 공급하므로 standalone remote exploit으로 분류하지 않습니다.
-PHP 8.0.30과 8.1.34의 새 profile은 이 한계를 해소해 두 ASLR base를 HTTP로
-복원합니다. PHP
-5.4–7.2의 end-to-end RCE는 이 저장소에서 아직 검증되지 않았습니다. 다만 PHP
-7.2.34에서는 pre-RINIT OOM 뒤 dangling `zend_reference`가 다음 요청까지 남는
-stale-state primitive를 fresh container 8회에서 확인했습니다. refcount가 `2 → 1`로
-감소할 뿐 destructor가 호출되지 않았고, 24-byte reference reclaim에도 실패해
-proof는 생성되지 않았습니다. PHP 5.4–7.1은 benign 선행 표면만 확인한 상태입니다.
-PHP 7.3은 지원되는 upstream branch가 아니며 공식 php-src backport도 없습니다.
+이 여덟 결과는 CNA가 열거한 8.2–8.5 범위를 바꾸지 않습니다. PHP 5.4–5.6의
+HTTP 주소 유출은 번들 endpoint와 같이 영향을 받은 POST 값을 worker 종료 전에
+binary-safe로 반사하는 application response sink를 전제로 합니다. 최종 runner에는
+GDB, ptrace, `LD_PRELOAD`, `/proc/*/maps` 또는 `/proc/*/mem` 주소 입력이 없습니다.
 
 별도의 benign 범위 프로브로 PHP 5.4.45부터 8.1.34까지 각 minor branch의 마지막
 Apache build 10개도 실행했습니다. 전부 기본 설정에서 application script보다 먼저
@@ -125,6 +120,17 @@ runner는 다음 제한을 강제합니다.
 PHP2SHELL_PROFILE_ID=php-8.0.30-apache-amd64-trans-sid \
   ./poc/multiversion/run-local-docker-lab.sh
 ```
+
+PHP 5.4.45–7.4.33의 HTTP-only exact profiles는 별도 allow-list runner로
+재현합니다. 각 버전의 보고서, source, runtime config를 함께 제공합니다.
+
+```bash
+./poc/legacy-http-rce/run-local-docker-lab.sh
+```
+
+특정 legacy profile만 실행하려면 `PHP2SHELL_LEGACY_VERSION=5.6`처럼 `5.4`,
+`5.5`, `5.6`, `7.0`–`7.4` 중 하나를 선택합니다. 상세 조건은
+[`poc/legacy-http-rce`](poc/legacy-http-rce/)에 있습니다.
 
 PHP 7.3.33, 7.4.33과 PHP 8.0.30/8.1.34의 historical 로컬 보정형 RCE chain은
 별도 runner로 실행합니다. root
@@ -176,10 +182,12 @@ art, commit과 로컬 관찰 결과를 인용합니다. 자세한 범위는
 - [multi-version 릴리스 검증 기록](poc/multiversion/VALIDATION.md)
 - [PHP 8.0.30 HTTP-only RCE 검증](docs/PHP-8.0-HTTP-RCE-VALIDATION.md)
 - [PHP 8.1.34 HTTP-only RCE 검증](docs/PHP-8.1-HTTP-RCE-VALIDATION.md)
+- [PHP 5.4.45–7.4.33 HTTP-only exact-build PoC](poc/legacy-http-rce/)
+- [legacy HTTP-only 검증 매트릭스](poc/legacy-http-rce/VALIDATION.md)
 - [공식 CNA·EOL 완화·연구진 확인 범위](docs/AFFECTED-SCOPE.md)
 - [PHP 5.4–8.1 로컬 runtime matrix](docs/LEGACY-RUNTIME-MATRIX.md)
 - [PHP 7.3.33–8.1.34 historical 로컬 보정형 RCE 검증](docs/LEGACY-RCE-VALIDATION.md)
-- [PHP 7.2.34 stale-state primitive 검증과 RCE 미도달 경계](docs/PHP-7.2-STALE-STATE.md)
+- [PHP 7.2.34 초기 stale-state 개발 기록](docs/PHP-7.2-STALE-STATE.md)
 - [구버전 고정형 RCE runner](poc/legacy-calibrated-rce/)
 - [레거시 범위 benign probe](poc/legacy-scope-probe/)
 - [공개 가능 범위 검토](docs/PUBLICATION-SCOPE.md)

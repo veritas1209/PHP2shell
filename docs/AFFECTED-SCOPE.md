@@ -89,28 +89,30 @@ builds to update. It is tracked separately from the stable CVE matrix.
 
 ## 5. Scope of this repository's PoC
 
-Runnable support here remains **exact-build support**. Five standalone HTTP
-profiles cover PHP 8.1.34, 8.2.34, 8.3.35, 8.4.26, and 8.5.11 on fingerprinted
-Apache images and runtimes. Separate locally calibrated labs reach fixed-command RCE
-on exact PHP 7.3.33, 7.4.33, 8.0.30, and 8.1.34 images after reading target
-process addresses from local `/proc`. PHP 7.3/7.4/8.0 use a raw-key partial
-`Bucket` path; PHP 8.1 uses a distinct stale-session `zend_reference` path. A
-proof on one image establishes the chain only for that image, SAPI,
-configuration, and heap recipe; it must not be generalized to all releases in
-the branch.
+Runnable support here remains **exact-build support**. Six standalone HTTP
+profiles cover PHP 8.0.30 through PHP 8.5.11, and eight separate legacy HTTP
+profiles cover PHP 5.4.45 through PHP 7.4.33. Every published profile is tied
+to a fingerprinted Apache image, runtime configuration, and heap recipe. A
+proof on one image must not be generalized to every release in that branch.
+The PHP 5.4–5.6 address disclosure additionally requires an application
+endpoint that reflects the affected POST value, including embedded bytes,
+before the worker exits.
 
-The original Set-Cookie disclosure recipe did not port directly to the tested
-PHP 8.1.34 and 7.2.34 images. PHP 8.1.34 now has a separate 128 MiB
-FILE_START/trans-SID profile that obtains both runtime bases from HTTP and
-produced 3/3 fresh fixed-command proofs. Its historical 8 MiB lab still reads
-the addresses from local `/proc` and is retained as independent terminal
-primitive evidence. PHP 5.4–7.2 still have no
-end-to-end RCE runner here. PHP 7.2.34 is no longer only a benign-surface
-observation: a bounded investigation reproduced a pre-RINIT OOM dangling
-`zend_reference` across requests in 8/8 fresh containers at Zend MM chunk
-`+0x6a018`. Its refcount only fell from 2 to 1, the tested inputs did not
-reclaim the 24-byte reference, and no destructor or command proof occurred.
-PHP 5.4–7.1 remain benign-surface-only observations in this repository. See
-[`PHP-7.2-STALE-STATE.md`](PHP-7.2-STALE-STATE.md). The official EOL mitigations
-and research record show that the broader technical scope extends beyond the
-bundled profiles.
+The legacy profiles use version-specific consumers rather than treating the
+public Set-Cookie recipe as universal. PHP 7.0 uses Set-Cookie, PHP 7.1–7.4
+use trans-SID response data, and PHP 5.4–5.6 use an mbstring symbol pointer in
+the application reflection response. The fixed `id>/out/p` proof was observed
+in 3/3 fresh runs for PHP 5.4–5.6 and PHP 7.1–7.4, with an additional 2/2
+independent audit for PHP 5.4, and in 4/4 runs for PHP 7.0. See
+[`../poc/legacy-http-rce/`](../poc/legacy-http-rce/) for the exact matrix.
+
+Earlier bounded work on PHP 7.2 reproduced a dangling `zend_reference` but did
+not turn that specific route into command execution. It remains published as
+development history in [`PHP-7.2-STALE-STATE.md`](PHP-7.2-STALE-STATE.md); the
+later HTTP-only PHP 7.2 profile uses a different completed chain. Historical
+locally calibrated `/proc` labs are likewise retained as independent terminal
+primitive evidence and are not inputs to the final HTTP-only profiles.
+
+These PHP 5.4–8.1 exact-build results are technical research evidence. They do
+not expand the PHP CNA's formal CVE matrix beyond PHP 8.2–8.5 or imply an
+official php-src backport for EOL branches.

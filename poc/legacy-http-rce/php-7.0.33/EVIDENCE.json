@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-24",
+  "scope": {
+    "purpose": "isolated security research",
+    "target": "PHP 7.0.33 Apache exact-image local Docker lab",
+    "network": "Docker internal network",
+    "published_ports": false,
+    "fixed_command": "id>/out/p",
+    "cve_range_claim": false
+  },
+  "verification": {
+    "state": "verified-http-only-rce",
+    "fresh_aslr_runs": 4,
+    "successful_runs": 4,
+    "address_source": "HTTP B1 response only",
+    "uses_debugger": false,
+    "uses_process_maps_or_memory": false,
+    "uses_ptrace": false,
+    "uses_ld_preload": false
+  },
+  "runtime": {
+    "image": "mirror.gcr.io/library/php@sha256:1d34b2e491a02ba7a8d26478132015e197a5ffea37f0a93b42621d11cfe042cc",
+    "image_id": "sha256:aa67a9c9814fb920a3aa01122b56010ddf1130710caf71a8871a0f1dbb4d78fd",
+    "php": "7.0.33",
+    "sapi": "apache2handler",
+    "libphp_sha256": "bebdad934a7df94fb646a3014dc784e88c13bca2a2645eee8b213ef325108447",
+    "libphp_build_id": "d3abf8f2994c033ec49435cebdb0434b641c499f",
+    "libc_version": "2.24",
+    "libc_sha256": "b2c8bf64c2cafdce5cb263cc100749b5e6b3e4783eef2fff16ae1b4bc5633e16"
+  },
+  "http_disclosure": {
+    "leak_length": 1048576,
+    "main_relation": "qword(leak+0xc8f30)-0x12b200",
+    "libphp_relation": "qword(leak+0x63ee8)-0x46c790",
+    "system_from_libphp": "0x3aae480"
+  },
+  "runs": [
+    {"id": "http-rce-alt-attempt1", "main": "0x76df8e800000", "libphp": "0x76df97f1f000", "system": "0x76df9b9cd480", "proof": "uid/gid 33"},
+    {"id": "http-rce-alt-attempt2", "main": "0x729ef1c00000", "libphp": "0x729efb31c000", "system": "0x729efedca480", "proof": "uid/gid 33"},
+    {"id": "http-rce-alt-attempt3", "main": "0x77462c200000", "libphp": "0x7746359dd000", "system": "0x77463948b480", "proof": "uid/gid 33"},
+    {"id": "http-rce-alt-postcleanup", "main": "0x70f2af600000", "libphp": "0x70f2b8cf8000", "system": "0x70f2bc7a6480", "proof": "uid/gid 33"}
+  ]
+}

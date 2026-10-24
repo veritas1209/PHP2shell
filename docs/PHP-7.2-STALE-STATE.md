@@ -3,8 +3,11 @@
 작성일: 2026-10-23 (Asia/Seoul)
 
 > [!CAUTION]
-> 이 문서는 격리된 로컬 Docker 환경에서 수행한 보안 연구 결과다. PHP 7.2용
-> RCE PoC가 아니며, 명령 실행이나 proof 생성에 성공했다는 주장을 하지 않는다.
+> 이 문서는 격리된 로컬 Docker 환경에서 수행한 초기 개발 경로의 기록이다. 이
+> 실험 자체는 PHP 7.2 RCE PoC가 아니며 명령 실행이나 proof를 만들지 못했다.
+> 이후 별도 HTTP-only chain은 exact PHP 7.2.34에서 3/3 고정 proof를 만들었고
+> [`../poc/legacy-http-rce/php-7.2.34/`](../poc/legacy-http-rce/php-7.2.34/)에
+> 분리해 게시한다.
 
 ## 결론
 
@@ -78,10 +81,12 @@ partial `Bucket`이 남지 않는다. PHP 7.3+ raw-string 최적화 경로는 �
 
 ## 증거의 범위
 
-이 조사가 입증한 것은 pre-RINIT OOM 뒤 request 간 dangling session reference와
+이 초기 조사가 입증한 것은 pre-RINIT OOM 뒤 request 간 dangling session reference와
 다음 요청의 stale read/refcount 감소다. memory disclosure, controlled reclaim,
-destructor dispatch, command execution 또는 RCE는 입증하지 않았다. PHP 5.4–7.1은
-별도 benign matrix에서 pre-script upload-progress 표면만 확인된 상태다.
+destructor dispatch, command execution 또는 RCE는 입증하지 않았다. 이 문서가
+기록한 실패 경로와 별개로 PHP 5.4.45–7.4.33의 후속 exact-build HTTP chain은
+[`../poc/legacy-http-rce/`](../poc/legacy-http-rce/)에서 검증됐다. 두 결과는 서로
+다른 producer, disclosure와 terminal geometry를 설명하므로 함께 보존한다.
 
 공개용 요약 trace와 exact image identity는
 [`evidence/legacy-rce/php-7.2.34-stale-state.txt`](../evidence/legacy-rce/php-7.2.34-stale-state.txt)에

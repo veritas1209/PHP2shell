@@ -1,0 +1,70 @@
+{
+  "profile": "php56-mbstring-http-rce",
+  "fresh_aslr_runs": [
+    {
+      "label": "fresh-aslr-1",
+      "http_pointer": "0x7ff1e9c8ac80",
+      "libphp_base": "0x7ff1e8fea000",
+      "system": "0x7ff1eca5e480",
+      "stale_zval": "0x7ff1ed7fa3c0",
+      "carrier": "0x7ff1ed7f6628",
+      "checks": {
+        "proof_uid33": true,
+        "image_id": true,
+        "no_ports": true,
+        "internal_network": true,
+        "no_ld_preload": true,
+        "page_aligned": true,
+        "symbol_relation": true,
+        "system_relation": true,
+        "stale_relation": true,
+        "carrier_relation": true,
+        "http_only_flags": true
+      }
+    },
+    {
+      "label": "fresh-aslr-2",
+      "http_pointer": "0x7fc7cbbe4c80",
+      "libphp_base": "0x7fc7caf44000",
+      "system": "0x7fc7ce9b8480",
+      "stale_zval": "0x7fc7cf7543c0",
+      "carrier": "0x7fc7cf750628",
+      "checks": {
+        "proof_uid33": true,
+        "image_id": true,
+        "no_ports": true,
+        "internal_network": true,
+        "no_ld_preload": true,
+        "page_aligned": true,
+        "symbol_relation": true,
+        "system_relation": true,
+        "stale_relation": true,
+        "carrier_relation": true,
+        "http_only_flags": true
+      }
+    },
+    {
+      "label": "fresh-aslr-3",
+      "http_pointer": "0x79976ce00c80",
+      "libphp_base": "0x79976c160000",
+      "system": "0x79976fbd4480",
+      "stale_zval": "0x7997709703c0",
+      "carrier": "0x79977096c628",
+      "checks": {
+        "proof_uid33": true,
+        "image_id": true,
+        "no_ports": true,
+        "internal_network": true,
+        "no_ld_preload": true,
+        "page_aligned": true,
+        "symbol_relation": true,
+        "system_relation": true,
+        "stale_relation": true,
+        "carrier_relation": true,
+        "http_only_flags": true
+      }
+    }
+  ],
+  "distinct_libphp_bases": true,
+  "all_checks": true
+}

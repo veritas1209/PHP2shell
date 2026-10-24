@@ -20,15 +20,17 @@ official php-src backport branch. See
 | PHP 8.3.35 Apache | Verified and runnable | Two independent ptrace-free proofs; adaptive leak and r0 `0x74180` |
 | PHP 8.4.26 Apache | Verified and runnable | Four documented proofs; fixed carrier `0x690d8` |
 | PHP 8.5.11 Apache | Verified and runnable | Two independent ptrace-free proofs; r0 `0x73180`, one 19-byte pre-session field, 127 large values |
-| PHP 7.2.34 Apache | Unsupported; bounded stale-state result, no RCE profile | On exact image `php@sha256:4dc0f0115acf8c2f0df69295ae822e49f5ad5fe849725847f15aa0e5802b55f8`, pre-RINIT OOM left a stale `zend_reference` at chunk `+0x6a018` in 8/8 fresh containers. Refcount 2 only fell to 1, tested inputs did not reclaim the 24-byte object, and no destructor or proof occurred. |
+| PHP 7.2.34 Apache | Unsupported in this six-profile harness; separate legacy HTTP profile available | An earlier pre-RINIT route on the exact image left a stale `zend_reference` in 8/8 fresh containers but did not reclaim it or dispatch a destructor. A later version-specific chain, packaged separately under `poc/legacy-http-rce`, obtained its addresses from HTTP and produced 3/3 fresh fixed-command proofs. |
 
-The unsupported PHP 7.2 row means only that this exact PoC recipe is not ported. It
-must not be interpreted as “not vulnerable” or as contradicting the published
-5.4+ research range. A safe port would need the path appropriate to that PHP
-version/SAPI, a locally validated address-disclosure primitive, and a new
-exact-build profile.
+The unsupported PHP 7.2 row means only that the profile is not part of this
+six-profile `poc/multiversion` allow-list. The earlier bounded route remains a
+useful negative result for that specific producer/consumer sequence. The
+separate [legacy HTTP-only profile](../legacy-http-rce/php-7.2.34/) uses a
+different completed chain and is tied to its own exact image and runtime. This
+harness classification must not be interpreted as “not vulnerable” or as
+contradicting the separately verified exact-build result.
 
-The PHP 7.2 bounded result is documented in
+The earlier PHP 7.2 bounded result is documented in
 [`PHP-7.2-STALE-STATE.md`](../../docs/PHP-7.2-STALE-STATE.md). PHP 7.2's source
 allocates a key before incrementing `nNumUsed`, so the PHP 7.3+ raw-key
 partial-`Bucket` producer is not portable to this build.

